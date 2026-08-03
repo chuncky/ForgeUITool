@@ -1,0 +1,64 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a222c;
+  --panel-2: #222c38;
+  --border: #2e3a48;
+  --text: #e7eef7;
+  --muted: #8aa0b6;
+  --accent: #3d9cf0;
+  --accent-2: #2a6fad;
+  --danger: #e25b5b;
+  --canvas-bg: #0b1015;
+  --screen: #102a43;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button.primary {
+  background: var(--accent-2);
+  border-color: var(--accent);
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: #ffd0d0;
+}
+
+.panel-title {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+}

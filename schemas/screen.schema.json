@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forgeui.local/schemas/screen.schema.json",
+  "title": "ForgeUI Screen",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "type", "name", "frame", "props", "style", "events", "children"],
+  "properties": {
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "type": { "const": "screen" },
+    "name": { "type": "string", "minLength": 1 },
+    "frame": { "$ref": "#/$defs/frame" },
+    "props": { "type": "object" },
+    "style": { "type": "object" },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "children": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "locked": { "type": "boolean" },
+    "hidden": { "type": "boolean" }
+  },
+  "$defs": {
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number", "minimum": 0 },
+        "h": { "type": "number", "minimum": 0 },
+        "zIndex": { "type": "integer" }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["CHANGE_SCREEN", "CALL_FUNCTION", "SET_PROP"]
+        },
+        "target": { "type": "string" },
+        "anim": { "type": "string" },
+        "ms": { "type": "number" },
+        "handler": { "type": "string" },
+        "nodeId": { "type": "string" },
+        "prop": { "type": "string" },
+        "value": {}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trigger", "actions"],
+      "properties": {
+        "id": { "type": "string" },
+        "trigger": {
+          "type": "string",
+          "enum": ["CLICKED", "PRESSED", "RELEASED", "LONG_PRESSED", "VALUE_CHANGED"]
+        },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/action" }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "name", "frame", "props", "style", "events", "children"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "frame": { "$ref": "#/$defs/frame" },
+        "props": { "type": "object" },
+        "style": { "type": "object" },
+        "events": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/event" }
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/node" }
+        },
+        "locked": { "type": "boolean" },
+        "hidden": { "type": "boolean" }
+      }
+    }
+  }
+}

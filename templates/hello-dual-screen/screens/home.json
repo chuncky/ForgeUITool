@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "home",
+  "type": "screen",
+  "name": "Home",
+  "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 480,
+    "h": 320
+  },
+  "props": {},
+  "style": {
+    "main": {
+      "default": {
+        "bg_color": "#102a43"
+      }
+    }
+  },
+  "events": [],
+  "children": [
+    {
+      "type": "label",
+      "id": "lbl_title",
+      "name": "Title",
+      "frame": {
+        "x": 24,
+        "y": 24,
+        "w": 240,
+        "h": 40
+      },
+      "props": {
+        "text": "Hello ForgeUI",
+        "align": "left"
+      },
+      "style": {
+        "main": {
+          "default": {
+            "text_color": "#F0F4F8"
+          }
+        }
+      },
+      "events": [],
+      "children": []
+    },
+    {
+      "type": "button",
+      "id": "btn_next",
+      "name": "Next",
+      "frame": {
+        "x": 180,
+        "y": 240,
+        "w": 120,
+        "h": 48
+      },
+      "props": {
+        "text": "Next"
+      },
+      "style": {},
+      "events": [
+        {
+          "id": "evt_btn_next_click",
+          "trigger": "CLICKED",
+          "actions": [
+            {
+              "type": "CHANGE_SCREEN",
+              "target": "settings",
+              "anim": "none",
+              "ms": 0
+            },
+            {
+              "type": "CALL_FUNCTION",
+              "handler": "on_btn_next"
+            }
+          ]
+        }
+      ],
+      "children": []
+    },
+    {
+      "type": "container",
+      "id": "container_1",
+      "name": "容器",
+      "frame": {
+        "x": 20,
+        "y": 36,
+        "w": 100,
+        "h": 100
+      },
+      "props": {},
+      "style": {},
+      "events": [],
+      "children": [
+        {
+          "type": "button",
+          "id": "button_1",
+          "name": "按钮",
+          "frame": {
+            "x": 299,
+            "y": 23,
+            "w": 100,
+            "h": 40
+          },
+          "props": {
+            "text": "Button"
+          },
+          "style": {},
+          "events": [],
+          "children": []
+        }
+      ]
+    }
+  ]
+}

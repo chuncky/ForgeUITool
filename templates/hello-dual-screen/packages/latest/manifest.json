@@ -1,0 +1,20 @@
+{
+  "format": "forgeui-package",
+  "formatVersion": 1,
+  "name": "hello_dual",
+  "platform": "qm10xd",
+  "lvglVersion": "9.10",
+  "display": {
+    "width": 480,
+    "height": 320,
+    "colorDepth": 16,
+    "rotation": 0
+  },
+  "entrySymbol": "ui_init",
+  "defaultScreen": "home",
+  "screens": [
+    "home",
+    "settings"
+  ],
+  "note": "Skeleton package for A2 path; full Packer/Loader fill lands in V1."
+}

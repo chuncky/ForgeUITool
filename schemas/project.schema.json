@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forgeui.local/schemas/project.schema.json",
+  "title": "ForgeUI Project",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "name",
+    "platform",
+    "display",
+    "lvglVersion",
+    "previewBackend",
+    "deliveryMode",
+    "entrySymbol",
+    "defaultScreen",
+    "screens"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "platform": { "type": "string", "enum": ["qm10xd", "qm10xv", "qm10xh"] },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "colorDepth"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "colorDepth": { "type": "integer", "enum": [8, 16, 24, 32] },
+        "rotation": { "type": "integer", "enum": [0, 90, 180, 270] }
+      }
+    },
+    "lvglVersion": { "type": "string", "enum": ["9.10"] },
+    "previewBackend": { "type": "string", "enum": ["sdl", "wasm"] },
+    "deliveryMode": { "type": "string", "enum": ["static_c", "dynamic_ui", "both"] },
+    "entrySymbol": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "defaultScreen": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "file"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "file": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "images": { "type": "array" },
+        "fonts": { "type": "array" }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "imageMode": { "type": "string", "enum": ["c_array", "fs_path"] },
+        "lvglInclude": { "type": "string" },
+        "codegenDir": { "type": "string" },
+        "customSubdir": { "type": "string" },
+        "generatedDir": { "type": "string" },
+        "userDir": { "type": "string" },
+        "packageDir": { "type": "string" }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "copyTargetRel": { "type": "string" }
+      }
+    },
+    "naming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cPrefix": { "type": "string" },
+        "screenPrefix": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.forge/
+coverage/
+*.log
+.DS_Store
+apps/designer/out/
+.cache/
+.tmp/

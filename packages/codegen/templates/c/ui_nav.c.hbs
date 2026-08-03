@@ -1,0 +1,16 @@
+#include "ui_nav.h"
+#include <string.h>
+{{#each screens}}
+#include "screens/screen_{{id}}.h"
+{{/each}}
+
+void ui_nav_load_screen(const char *screen_id)
+{
+    if (screen_id == NULL) return;
+{{#each screens}}
+    if (strcmp(screen_id, "{{id}}") == 0) {
+        lv_screen_load({{../screenPrefix}}{{id}}_get());
+        return;
+    }
+{{/each}}
+}

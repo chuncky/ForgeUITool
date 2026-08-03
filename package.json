@@ -1,0 +1,35 @@
+{
+  "name": "forgeui-kit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ForgeUI Kit — qm10x LVGL visual UI toolchain",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @forgeui/shared -w @forgeui/core -w @forgeui/codegen -w @forgeui/preview-host -w @forgeui/platforms -w @forgeui/packer -w @forgeui/loader -w @forgeui/mcp -w @forgeui/importers -w @forgeui/cli",
+    "build:designer": "npm run build && npm run build -w @forgeui/designer",
+    "dev:designer": "npm run build && npm run electron:ensure && npm run dev -w @forgeui/designer",
+    "electron:ensure": "node scripts/ensure-electron.mjs",
+    "fetch:lvgl": "node scripts/fetch-lvgl.mjs",
+    "fetch:sdl": "node scripts/fetch-sdl.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "forgeui": "npm run build && node apps/cli/dist/cli.js",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.11.1",
+    "pinia": "^4.0.2",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9",
+    "vue": "^3.5.40"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

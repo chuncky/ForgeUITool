@@ -1,0 +1,17 @@
+#ifndef FORGEUI_UI_NAV_H
+#define FORGEUI_UI_NAV_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "lvgl/lvgl.h"
+
+/** Load screen by project screen id (SquareLine ui_helpers equivalent). */
+void ui_nav_load_screen(const char *screen_id);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

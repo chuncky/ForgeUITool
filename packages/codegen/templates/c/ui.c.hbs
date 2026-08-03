@@ -1,0 +1,30 @@
+#include "ui.h"
+#include "ui_nav.h"
+{{#each screens}}
+#include "screens/screen_{{id}}.h"
+{{/each}}
+#include "custom/ui_events.h"
+
+{{#each changeTargets}}
+void {{../ir.cPrefix}}event_change_screen_{{this}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    ui_nav_load_screen("{{this}}");
+}
+{{/each}}
+
+{{#each ir.callHandlers}}
+void {{../ir.cPrefix}}event_call_{{this}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    {{this}}();
+}
+{{/each}}
+
+void {{ir.entrySymbol}}(void)
+{
+{{#each screens}}
+    {{../ir.screenPrefix}}{{id}}_create();
+{{/each}}
+    lv_screen_load({{ir.screenPrefix}}{{defaultScreen}}_get());
+}

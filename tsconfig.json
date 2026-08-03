@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/core" },
+    { "path": "packages/codegen" },
+    { "path": "packages/preview-host" },
+    { "path": "packages/platforms" },
+    { "path": "apps/cli" }
+  ]
+}

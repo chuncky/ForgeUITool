@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "hello_dual",
+  "platform": "qm10xd",
+  "display": {
+    "width": 480,
+    "height": 320,
+    "colorDepth": 16,
+    "rotation": 0
+  },
+  "lvglVersion": "9.10",
+  "previewBackend": "sdl",
+  "deliveryMode": "both",
+  "entrySymbol": "ui_init",
+  "defaultScreen": "settings",
+  "screens": [
+    {
+      "id": "home",
+      "file": "screens/home.json"
+    },
+    {
+      "id": "settings",
+      "file": "screens/settings.json"
+    }
+  ],
+  "assets": {
+    "images": [],
+    "fonts": []
+  },
+  "export": {
+    "imageMode": "c_array",
+    "lvglInclude": "lvgl/lvgl.h",
+    "codegenDir": "forgeui_generated",
+    "customSubdir": "custom",
+    "packageDir": "packages/latest"
+  },
+  "sdk": {
+    "path": "",
+    "copyTargetRel": "ui"
+  },
+  "naming": {
+    "cPrefix": "ui_",
+    "screenPrefix": "screen_"
+  }
+}

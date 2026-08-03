@@ -1,0 +1,17 @@
+#include "screen_{{screen.id}}.h"
+
+static lv_obj_t *{{screen.screenSym}};
+
+{{#each screen.symbols}}
+lv_obj_t *{{this}};
+{{/each}}
+
+lv_obj_t *{{ir.screenPrefix}}{{screen.id}}_get(void)
+{
+    return {{screen.screenSym}};
+}
+
+void {{ir.screenPrefix}}{{screen.id}}_create(void)
+{
+{{{screen.body}}}
+}

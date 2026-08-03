@@ -1,0 +1,16 @@
+#ifndef FORGEUI_USER_UI_EVENTS_H
+#define FORGEUI_USER_UI_EVENTS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+{{#each handlers}}
+void {{this}}(void);
+{{/each}}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -1,0 +1,29 @@
+{
+  "name": "@forgeui/designer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ForgeUI Kit Electron + Vue3 designer",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on http://localhost:5173 && cross-env FORGEUI_DESIGNER_DEV=1 electron .\"",
+    "dev:ui": "vite --port 5173 --strictPort",
+    "build:renderer": "vite build",
+    "build": "vite build",
+    "start": "cross-env FORGEUI_DESIGNER_DEV=0 electron ."
+  },
+  "dependencies": {
+    "pinia": "^3.0.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "vite": "^6.2.2",
+    "wait-on": "^8.0.3"
+  },
+  "optionalDependencies": {
+    "electron": "35.7.5"
+  }
+}

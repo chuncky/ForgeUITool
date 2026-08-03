@@ -1,0 +1,21 @@
+{
+  "name": "@forgeui/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "forgeui": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@forgeui/codegen": "0.1.0",
+    "@forgeui/core": "0.1.0",
+    "@forgeui/importers": "0.1.0",
+    "@forgeui/packer": "0.1.0",
+    "@forgeui/platforms": "0.1.0",
+    "@forgeui/preview-host": "0.1.0",
+    "@forgeui/shared": "0.1.0"
+  }
+}
