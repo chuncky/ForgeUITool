@@ -1,0 +1,25 @@
+lvgl pro 官方网址：https://lvgl.io/pro
+
+官方工具下载（Releases zip 示例）
+https://github.com/lvgl/lvgl_editor/releases/download/v2.0.1/LVGL_Pro_Editor-2.0.1-windows.zip
+
+本地安装包（setup）
+e:\traework-p\lvgl_pro\LVGL_Pro_Editor-2.0.1-windows\LVGL_Pro_Editor-2.0.1-setup.exe
+
+本机安装目录（2.0.1 实测）
+D:\Program Files\LVGL_Pro_Editor
+
+用户数据
+%APPDATA%\LVGL Pro Editor
+
+分析文档：
+lvgl_pro/LVGL_Pro官方UI工具分析文档.md
+
+仿制方案：
+lvgl_pro/LVGL_Pro官方UI工具_仿制方案.md
+
+分析与仿制方案（综合稿）：
+lvgl_pro/LVGL_Pro官方UI工具_分析与仿制方案.md
+
+竞品逆向与重构设计说明：
+lvgl_pro/LVGL_Pro官方UI工具_竞品逆向与重构设计说明.md

@@ -1,0 +1,18 @@
+官方网站：
+https://www.envox.eu/studio/studio-introduction/
+
+Eez studio源码：studio-master
+
+Eez studio开源项目地址：https://github.com/eez-open/studio
+
+分析文档：
+EEZ Studio/EEZ_Studio分析文档.md
+
+仿制方案：
+EEZ Studio/EEZ_Studio_仿制方案.md
+
+分析与仿制方案（综合稿，推荐）：
+EEZ Studio/EEZ_Studio_分析与仿制方案.md
+
+竞品逆向与重构设计说明：
+EEZ Studio/EEZ_Studio_竞品逆向与重构设计说明.md

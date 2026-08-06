@@ -1,0 +1,20 @@
+uibuilder工具使用文档网站：
+https://aicdoc.artinchip.com/topics/tools/uibuilder/uibuilder_user_guide.html
+
+AiUIBuilder-2.0.2_setup.exe：为安装软件包
+本地路径：artinchip/AiUIBuilder/AiUIBuilder-2.0.2_setup.exe
+
+本机安装目录（2.0.2 实测）：
+D:\ArtInChip\AiUIBuilder
+
+分析文档：
+artinchip/ArtInChip_UIBuilder分析文档.md
+
+仿制方案：
+artinchip/ArtInChip_UIBuilder_仿制方案.md
+
+分析与仿制方案（综合稿）：
+artinchip/ArtInChip_UIBuilder_分析与仿制方案.md
+
+竞品逆向与重构设计说明：
+artinchip/ArtInChip_UIBuilder_竞品逆向与重构设计说明.md
