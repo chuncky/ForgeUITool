@@ -18,6 +18,21 @@ void {{../ir.cPrefix}}event_change_screen_{{this}}(lv_event_t *e);
 {{#each ir.callHandlers}}
 void {{../ir.cPrefix}}event_call_{{this}}(lv_event_t *e);
 {{/each}}
+{{#each setVars}}
+void {{../ir.cPrefix}}event_set_var_{{suffix}}(lv_event_t *e);
+{{/each}}
+{{#each toggleVars}}
+void {{../ir.cPrefix}}event_toggle_var_{{this}}(lv_event_t *e);
+{{/each}}
+{{#each switchLangs}}
+void {{../ir.cPrefix}}event_switch_lang_{{suffix}}(lv_event_t *e);
+{{/each}}
+{{#each playAnims}}
+void {{../ir.cPrefix}}event_play_anim_{{this}}(lv_event_t *e);
+{{/each}}
+{{#each setProps}}
+void {{../ir.cPrefix}}event_set_prop_{{suffix}}(lv_event_t *e);
+{{/each}}
 
 void {{ir.entrySymbol}}(void);
 void ui_nav_load_screen(const char *screen_id);

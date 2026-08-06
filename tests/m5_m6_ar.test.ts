@@ -12,7 +12,7 @@ import {
   saveProject,
 } from "@forgeui/core";
 import { packProject } from "@forgeui/packer";
-import { StubLoader } from "@forgeui/loader";
+import { ReferenceLoader, StubLoader } from "@forgeui/loader";
 import { listMcpTools, callMcpTool } from "@forgeui/mcp";
 import { bundleProject, unbundleProject, FigmaImporter } from "@forgeui/importers";
 
@@ -65,40 +65,55 @@ describe("M5 screen CRUD + events", () => {
 });
 
 describe("M6 packer skeleton + AR stubs", () => {
-  it("packs skeleton for deliveryMode=both", async () => {
+  it("packs full UI package for deliveryMode=both", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-pack-"));
     copyDir(templateRoot, tmp);
     const result = await packProject(tmp);
     expect(result.ok).toBe(true);
-    expect(result.skeleton).toBe(true);
+    expect(result.skeleton).toBe(false);
     expect(fs.existsSync(path.join(result.outDir, "manifest.json"))).toBe(true);
-    expect(result.diagnostics.some((d) => d.code === "E_PACK_NOT_IMPL")).toBe(true);
+    expect(fs.existsSync(path.join(result.outDir, "ui/screens/home.json"))).toBe(true);
+    expect(result.diagnostics.some((d) => d.code === "E_PACK_NOT_IMPL")).toBe(false);
 
-    const loader = new StubLoader();
+    const loader = new ReferenceLoader();
     const load = await loader.load(result.outDir, {
       width: 480,
       height: 320,
       colorDepth: 16,
       lvglVersion: "9.10",
     });
-    expect(load.ok).toBe(false);
+    expect(load.ok).toBe(true);
+
+    const stub = new StubLoader();
+    const stubLoad = await stub.load(result.outDir, {
+      width: 480,
+      height: 320,
+      colorDepth: 16,
+      lvglVersion: "9.10",
+    });
+    expect(stubLoad.ok).toBe(false);
   });
 
   it("lists MCP tools and supports read-only calls", async () => {
     expect(listMcpTools().map((t) => t.name)).toContain("forgeui_generate");
+    const batchTool = listMcpTools().find((t) => t.name === "forgeui_batch_update");
+    expect(batchTool?.implemented).toBe(true);
     await expect(callMcpTool("forgeui_batch_update", { projectRoot: templateRoot, operations: [] })).rejects.toThrow(
-      /E_MCP_NOT_IMPL/,
+      /E_MCP_ARGS/,
     );
     const ping = await callMcpTool("forgeui_ping", {});
     expect(ping).toMatchObject({ ok: true });
   });
 
-  it("figma importer stub", async () => {
+  it("figma importer accepts adapter JSON", async () => {
     const fig = new FigmaImporter();
-    expect(fig.canHandle("design.fig")).toBe(true);
-    const r = await fig.import("design.fig", "/tmp/x");
-    expect(r.ok).toBe(false);
-    expect(r.diagnostics[0]?.code).toBe("E_IMPORT_NOT_IMPL");
+    expect(fig.canHandle("export.figma.json")).toBe(true);
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-fig-ar-"));
+    const fixture = path.join(repoRoot, "tests/fixtures/figma-demo.figma.json");
+    const r = await fig.import(fixture, tmp);
+    expect(r.ok).toBe(true);
+    const loaded = openProject(tmp);
+    expect(loaded.project.defaultScreen).toBe("main");
   });
 
   it("bundle / unbundle roundtrip", () => {

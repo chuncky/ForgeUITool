@@ -1,4 +1,15 @@
-import { EditorHistory } from "../../../packages/core/dist/editor-history.js";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { app } from "electron";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "forgeui-root")
+  : path.resolve(__dirname, "../../..");
+
+const { EditorHistory } = await import(
+  pathToFileURL(path.join(repoRoot, "packages/core/dist/editor-history.js")).href
+);
 
 /** @type {EditorHistory<object>} */
 export const projectHistory = new EditorHistory();

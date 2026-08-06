@@ -11,23 +11,71 @@
     <div class="actions">
       <ToolbarButton
         icon="settings"
-        label="项目设置"
+        :label="tt('projectSettings')"
         @click="ui.showProjectSettings = true"
       />
       <ToolbarButton
         icon="widgets"
-        label="控件库"
+        :label="tt('widgetLibrary')"
         :active="ui.widgetLibraryVisible"
         title="显示或隐藏控件库面板"
         @click="ui.toggleWidgetLibrary()"
       />
       <ToolbarButton
         icon="palette"
-        label="颜色库"
-        disabled
-        title="V1：颜色库 FR-018"
+        :label="tt('colorLibrary')"
+        :disabled="!store.loaded"
+        title="颜色库 FR-018"
+        @click="ui.showColorLibrary = true"
       />
-      <ToolbarButton icon="assets" label="资源管理" @click="ui.showAssets = true" />
+      <ToolbarButton
+        icon="i18n"
+        :label="tt('i18n')"
+        :disabled="!store.loaded"
+        title="多语言键值与 XLIFF FR-042/043"
+        @click="ui.showI18n = true"
+      />
+      <label
+        v-if="store.loaded && store.i18nConfig.enabled"
+        class="locale-switch"
+        title="设计器预览语言 FR-042"
+      >
+        {{ tt("previewLang") }}
+        <select :value="store.i18nConfig.previewLocale" @change="onPreviewLocale">
+          <option v-for="l in store.i18nConfig.locales" :key="l.id" :value="l.id">
+            {{ l.id }}
+          </option>
+        </select>
+      </label>
+      <ToolbarButton
+        icon="timeline"
+        :label="tt('animations')"
+        :disabled="!store.loaded"
+        title="时间轴动画 FR-071"
+        @click="ui.showAnimations = true"
+      />
+      <ToolbarButton
+        icon="code"
+        :label="tt('logicGraph')"
+        :disabled="!store.loaded"
+        title="逻辑图 FR-036"
+        @click="ui.showLogicGraph = true"
+      />
+      <ToolbarButton
+        icon="assets"
+        :label="tt('memoryEstimate')"
+        :disabled="!store.loaded"
+        title="内存估算 FR-076"
+        @click="ui.showMemoryEstimate = true"
+      />
+      <ToolbarButton icon="assets" :label="tt('assets')" @click="ui.showAssets = true" />
+      <label class="locale-switch" :title="tt('uiLocale')">
+        {{ tt("uiLocale") }}
+        <select :value="ui.uiLocale" @change="onUiLocale">
+          <option value="zh-CN">中文</option>
+          <option value="en">EN</option>
+        </select>
+      </label>
       <ToolbarButton
         icon="undo"
         icon-only
@@ -44,39 +92,49 @@
       />
       <ToolbarButton
         icon="save"
-        label="存档"
+        :label="tt('save')"
         :disabled="!store.loaded || !store.dirty"
         title="Ctrl+S"
         @click="store.save()"
       />
-      <ToolbarButton icon="history" label="历史" disabled title="V1：历史版本 FR-004" />
-      <ToolbarButton icon="code" label="代码编辑器" @click="ui.showCodeEditor = true" />
-      <ToolbarButton icon="ai" label="AI设计" @click="ui.showAiAssist = true" />
+      <ToolbarButton
+        icon="history"
+        :label="tt('history')"
+        :disabled="!store.loaded"
+        title="历史版本 FR-004"
+        @click="ui.showHistory = true"
+      />
+      <ToolbarButton icon="code" :label="tt('codeEditor')" @click="ui.showCodeEditor = true" />
+      <ToolbarButton icon="ai" :label="tt('aiDesign')" @click="ui.showAiAssist = true" />
       <div class="menu-wrap">
-        <ToolbarButton icon="c-lang" label="C语言 ▾" primary @click="toggleCMenu" />
+        <ToolbarButton icon="c-lang" :label="tt('cLang')" primary @click="toggleCMenu" />
         <div v-if="ui.cMenuOpen" class="menu" @mouseleave="ui.cMenuOpen = false">
-          <button @click="runC('clean')">全部清理</button>
-          <button @click="runC('generate')">生成代码</button>
-          <button @click="runC('compile')">编译</button>
-          <button @click="runC('simulate')">模拟运行</button>
-          <button @click="runC('all')">生成+编译+模拟运行</button>
+          <button @click="runC('clean')">{{ tt("clean") }}</button>
+          <button @click="runC('generate')">{{ tt("generate") }}</button>
+          <button @click="runC('compile')">{{ tt("compile") }}</button>
+          <button @click="runC('simulate')">{{ tt("simulate") }}</button>
+          <button @click="runC('wasmEmbed')">{{ tt("wasmEmbed") }}</button>
+          <button @click="runC('all')">{{ tt("all") }}</button>
         </div>
       </div>
       <div class="menu-wrap">
         <ToolbarButton
           icon="delivery"
-          label="交付 ▾"
+          :label="tt('delivery')"
           :disabled="!store.loaded"
           @click="toggleDeliveryMenu"
         />
         <div v-if="ui.deliveryMenuOpen" class="menu" @mouseleave="ui.deliveryMenuOpen = false">
-          <button @click="runDelivery('export')">导出到 SDK</button>
+          <button @click="runDelivery('export')">{{ tt("exportSdk") }}</button>
           <button
             :disabled="packDisabled"
             :title="packDisabled ? '当前为 static_c，未启用 A2' : ''"
             @click="runDelivery('pack')"
           >
-            打包 UI 包
+            {{ tt("packUi") }}
+          </button>
+          <button :disabled="packDisabled" @click="runDelivery('packPreview')">
+            {{ tt("packPreview") }}
           </button>
         </div>
       </div>
@@ -89,13 +147,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import ToolbarButton from "./ToolbarButton.vue";
 import { useProjectStore } from "../stores/project";
 import { useUiStore } from "../stores/ui";
+import { t, type UiStringKey } from "../i18n/ui-locale";
 
 const store = useProjectStore();
 const ui = useUiStore();
+
+onMounted(() => ui.initUiLocale());
+
+function tt(key: UiStringKey) {
+  return t(ui.uiLocale, key);
+}
 
 const projectLabel = computed(() => {
   const name = store.loaded?.project.name ?? "未打开工程";
@@ -107,6 +172,7 @@ const packDisabled = computed(
 );
 
 function openLogPanel() {
+  ui.bottomAuxTab = "log";
   ui.logPanelCollapsed = false;
 }
 
@@ -127,6 +193,7 @@ async function runC(cmd: string) {
   else if (cmd === "generate") await store.generate();
   else if (cmd === "compile") await store.previewBuild();
   else if (cmd === "simulate") await store.previewRun();
+  else if (cmd === "wasmEmbed") ui.showWasmEmbed = true;
   else if (cmd === "all") await store.generateCompileAndRun();
 }
 
@@ -135,6 +202,17 @@ async function runDelivery(cmd: string) {
   openLogPanel();
   if (cmd === "export") await store.exportSdk();
   else if (cmd === "pack") await store.pack();
+  else if (cmd === "packPreview") await store.previewPackedUi();
+}
+
+async function onPreviewLocale(e: Event) {
+  const locale = (e.target as HTMLSelectElement).value;
+  await store.setPreviewLocale(locale);
+}
+
+function onUiLocale(e: Event) {
+  const locale = (e.target as HTMLSelectElement).value as "zh-CN" | "en";
+  ui.setUiLocale(locale);
 }
 </script>
 
@@ -153,6 +231,24 @@ async function runDelivery(cmd: string) {
   flex-wrap: wrap;
   gap: 2px;
   align-items: center;
+}
+
+.locale-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 4px;
+}
+
+.locale-switch select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
 }
 
 .meta {

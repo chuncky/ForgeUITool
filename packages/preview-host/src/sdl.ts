@@ -93,8 +93,9 @@ function resolveLvglRoot(): string | null {
 
   const repo = resolveRepoRoot();
   const candidates = [
+    path.join(repo, "xos-package/lvgl"),
     path.join(repo, "third_party/lvgl"),
-    path.join(repo, "ref/beken/lvgl_ui_designer_2.0.3/resources/lv_port_pc_simulate/lvgl"),
+    path.resolve(process.cwd(), "xos-package/lvgl"),
     path.resolve(process.cwd(), "third_party/lvgl"),
   ];
   for (const c of candidates) {
@@ -341,7 +342,7 @@ export class SdlBackend implements PreviewBackend {
         level: "warning",
         code: ErrorCodes.E_PREV_001,
         message:
-          "未找到 LVGL 源码。请运行 npm run fetch:lvgl，或设置 FORGEUI_LVGL_ROOT 指向 LVGL 9.x 目录",
+          "未找到 LVGL 源码。请将修改版放到 xos-package/lvgl，或运行 npm run fetch:lvgl，或设置 FORGEUI_LVGL_ROOT",
       });
     } else {
       fs.writeFileSync(path.join(buildDir, "lvgl.root"), `${lvglRoot}\n`, "utf8");

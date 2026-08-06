@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { EventBinding, LoadedProject, Node, ScreenDocument } from "./types.js";
+import type { EventBinding, LoadedProject, NamedColor, NamedStyleTheme, Node, ScreenDocument } from "./types.js";
 import { ForgeError, ErrorCodes, IDENTIFIER_RE } from "@forgeui/shared";
 import { patchStyleProps } from "./style.js";
+import { syncStyleRefs } from "./themes.js";
 import { getWidgetSpec } from "./widgets.js";
 
 function walkFind(node: Node, id: string): Node | null {
@@ -43,6 +44,8 @@ export function updateNodeProps(
     props?: Record<string, unknown>;
     style?: Record<string, unknown>;
     styleKeys?: NodeStylePatch;
+    styleRef?: string | null;
+    extraData?: Record<string, unknown>;
   },
 ): void {
   const screen = loaded.screens.get(screenId);
@@ -52,10 +55,15 @@ export function updateNodeProps(
   if (patch.name !== undefined) node.name = patch.name;
   if (patch.frame) node.frame = { ...node.frame, ...patch.frame };
   if (patch.props) node.props = { ...node.props, ...patch.props };
+  if (patch.extraData) node.extraData = { ...(node.extraData ?? {}), ...patch.extraData };
+  if (patch.styleRef !== undefined) {
+    if (patch.styleRef === null || patch.styleRef === "") delete node.styleRef;
+    else node.styleRef = String(patch.styleRef);
+  }
   if (patch.styleKeys) {
     node.style = patchStyleProps(node.style, patch.styleKeys.part, patch.styleKeys.state, patch.styleKeys.props);
   } else if (patch.style) {
-    node.style = patchStyleProps(node.style, "main", "default", patch.style);
+    node.style = patch.style;
   }
 }
 
@@ -72,11 +80,16 @@ export function setNodeEvents(
   node.events = events;
 }
 
+export interface AddChildNodeOptions {
+  frame?: Partial<Node["frame"]>;
+}
+
 export function addChildNode(
   loaded: LoadedProject,
   screenId: string,
   parentId: string,
   type: string,
+  opts?: AddChildNodeOptions,
 ): Node {
   const screen = loaded.screens.get(screenId);
   if (!screen) throw new ForgeError(ErrorCodes.E_SEM_001, `screen ${screenId} not found`);
@@ -98,18 +111,20 @@ export function addChildNode(
     id = `${type}_${n}`;
   }
 
+  const defaultFrame = {
+    x: 20,
+    y: 20 + parent.children.length * 8,
+    w: spec.defaultFrame.w,
+    h: spec.defaultFrame.h,
+  };
   const node: Node = {
     type,
     id,
     name: spec.label["zh-CN"] || type,
-    frame: {
-      x: 20,
-      y: 20 + parent.children.length * 8,
-      w: spec.defaultFrame.w,
-      h: spec.defaultFrame.h,
-    },
+    frame: { ...defaultFrame, ...opts?.frame },
     props: Object.fromEntries(spec.props.map((p) => [p.name, p.default])),
     style: {},
+    ...(spec.defaultExtraData ? { extraData: structuredClone(spec.defaultExtraData) } : {}),
     events: [],
     children: [],
   };
@@ -416,6 +431,12 @@ export function updateProjectMeta(
     entrySymbol?: string;
     defaultScreen?: string;
     sdk?: Partial<NonNullable<LoadedProject["project"]["sdk"]>>;
+    colors?: NamedColor[];
+    themes?: NamedStyleTheme[];
+    i18n?: import("./i18n.js").I18nConfig;
+    animations?: import("./animations.js").TimelineAnimation[];
+    variables?: import("./variables.js").ProjectVariable[];
+    targets?: import("./memory-estimate.js").DisplayTarget[];
   },
 ): void {
   const p = loaded.project;
@@ -443,4 +464,13 @@ export function updateProjectMeta(
     p.defaultScreen = patch.defaultScreen;
   }
   if (patch.sdk) p.sdk = { ...(p.sdk ?? {}), ...patch.sdk };
+  if (patch.colors !== undefined) p.colors = patch.colors;
+  if (patch.themes !== undefined) {
+    p.themes = patch.themes;
+    syncStyleRefs(loaded);
+  }
+  if (patch.i18n !== undefined) p.i18n = patch.i18n;
+  if (patch.animations !== undefined) p.animations = patch.animations;
+  if (patch.variables !== undefined) p.variables = patch.variables;
+  if (patch.targets !== undefined) p.targets = patch.targets;
 }

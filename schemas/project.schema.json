@@ -7,7 +7,6 @@
   "required": [
     "schemaVersion",
     "name",
-    "platform",
     "display",
     "lvglVersion",
     "previewBackend",
@@ -19,7 +18,10 @@
   "properties": {
     "schemaVersion": { "type": "string", "minLength": 1 },
     "name": { "type": "string", "minLength": 1 },
-    "platform": { "type": "string", "enum": ["qm10xd", "qm10xv", "qm10xh"] },
+    "platform": {
+      "type": "string",
+      "description": "D-08: optional SDK delivery hint only; must not drive CodeGen"
+    },
     "display": {
       "type": "object",
       "additionalProperties": false,
@@ -67,7 +69,9 @@
         "customSubdir": { "type": "string" },
         "generatedDir": { "type": "string" },
         "userDir": { "type": "string" },
-        "packageDir": { "type": "string" }
+        "packageDir": { "type": "string" },
+        "eventStubStyle": { "type": "string", "enum": ["custom", "weak"] },
+        "micropython": { "type": "boolean" }
       }
     },
     "sdk": {
@@ -84,6 +88,163 @@
       "properties": {
         "cPrefix": { "type": "string" },
         "screenPrefix": { "type": "string" }
+      }
+    },
+    "colors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "value"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "value": { "type": "string" }
+        }
+      }
+    },
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "part", "state", "props"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "widgetType": { "type": "string" },
+          "part": { "type": "string" },
+          "state": { "type": "string" },
+          "props": { "type": "object" }
+        }
+      }
+    },
+    "customWidgets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "root"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "name": { "type": "string", "minLength": 1 },
+          "root": { "$ref": "https://forgeui.local/schemas/screen.schema.json#/$defs/node" },
+          "createdAt": { "type": "string" }
+        }
+      }
+    },
+    "i18n": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "defaultLocale": { "type": "string", "minLength": 1 },
+        "previewLocale": { "type": "string", "minLength": 1 },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string" }
+            }
+          }
+        },
+        "strings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "values"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "note": { "type": "string" },
+              "values": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "animations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "duration", "tracks"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string" },
+          "duration": { "type": "number", "minimum": 1 },
+          "loop": { "type": "boolean" },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "nodeId", "property", "keyframes"],
+              "properties": {
+                "id": { "type": "string" },
+                "nodeId": { "type": "string" },
+                "property": {
+                  "type": "string",
+                  "enum": ["x", "y", "w", "h", "opacity", "rotation"]
+                },
+                "keyframes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["t", "value"],
+                    "properties": {
+                      "t": { "type": "number", "minimum": 0 },
+                      "value": { "type": "number" },
+                      "easing": {
+                        "type": "string",
+                        "enum": ["linear", "ease_in", "ease_out", "ease_in_out"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "variables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["int", "bool", "string"] },
+          "defaultValue": {}
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "width", "height", "colorDepth"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "width": { "type": "integer", "minimum": 1 },
+          "height": { "type": "integer", "minimum": 1 },
+          "colorDepth": { "type": "integer", "enum": [8, 16, 24, 32] }
+        }
       }
     }
   }

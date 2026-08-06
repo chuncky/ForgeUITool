@@ -21,6 +21,8 @@ import { onMounted, ref } from "vue";
 
 const docs = [
   { id: "hello-qm10xd", label: "qm10xd 上板 HELLO" },
+  { id: "mvp-gui-acceptance", label: "MVP 验收 UI-01～09" },
+  { id: "ac-005-board-bringup", label: "AC-005 板端验收" },
   { id: "readme", label: "产品 README" },
 ];
 

@@ -57,4 +57,11 @@ export interface PreviewHost {
       onBuildLog?: PreviewBuildLogSink;
     },
   ): Promise<PreviewRunResult>;
+  /** FR-063 resident IR hot-reload (no-op / skip if session missing). */
+  hotReload?(projectRoot: string): Promise<{
+    ok: boolean;
+    buildDir: string;
+    message: string;
+    diagnostics: Diagnostic[];
+  }>;
 }

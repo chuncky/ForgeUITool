@@ -53,7 +53,6 @@ const tabs = [
 
 async function onCreate(opts: {
   name: string;
-  platform: "qm10xd" | "qm10xv" | "qm10xh";
   template: "blank" | "hello-dual-screen";
   width: number;
   height: number;

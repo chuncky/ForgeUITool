@@ -1,0 +1,38 @@
+{
+  "format": "forgeui-figma",
+  "formatVersion": 1,
+  "name": "Figma Demo",
+  "display": { "width": 480, "height": 320, "colorDepth": 16 },
+  "pages": [
+    {
+      "id": "main",
+      "name": "Main",
+      "frame": { "x": 0, "y": 0, "w": 480, "h": 320 },
+      "backgroundColor": "#1a1a2e",
+      "nodes": [
+        {
+          "figmaType": "TEXT",
+          "name": "Title",
+          "frame": { "x": 40, "y": 40, "w": 200, "h": 32 },
+          "text": "From Figma",
+          "fillColor": "#eeeeee"
+        },
+        {
+          "figmaType": "FRAME",
+          "name": "Go Button",
+          "frame": { "x": 40, "y": 100, "w": 120, "h": 44 },
+          "fillColor": "#3d5afe",
+          "cornerRadius": 8,
+          "children": [
+            {
+              "figmaType": "TEXT",
+              "name": "Label",
+              "frame": { "x": 50, "y": 110, "w": 100, "h": 24 },
+              "text": "Go"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -5,9 +5,10 @@
     <div class="cta">
       <button class="primary" @click="ui.showNewProject = true">新建工程</button>
       <button @click="openDir">打开工程</button>
+      <button @click="importBundle">导入 .forgeui</button>
       <button @click="openHello">打开 Hello 示例</button>
     </div>
-    <p class="sub">导入 .forgeui：请使用 CLI <code>forgeui unbundle</code>（设计器导入 V1）。</p>
+    <p class="sub">.forgeui 为分享包格式；导入后请在目标目录继续编辑并存档。</p>
   </div>
 </template>
 
@@ -23,6 +24,11 @@ const router = useRouter();
 async function openDir() {
   await project.openDir();
   if (project.loaded) await router.push("/workspace");
+}
+
+async function importBundle() {
+  const ok = await project.importForgeui();
+  if (ok && project.loaded) await router.push("/workspace");
 }
 
 async function openHello() {

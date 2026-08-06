@@ -22,7 +22,7 @@
       默认预览后端
       <select v-model="settings.settings.previewBackend">
         <option value="sdl">sdl（MVP）</option>
-        <option value="wasm">wasm（V2 stub）</option>
+        <option value="wasm">wasm（IR 浏览器预览）</option>
       </select>
     </label>
     <label>

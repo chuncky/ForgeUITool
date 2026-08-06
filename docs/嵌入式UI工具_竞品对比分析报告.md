@@ -4,7 +4,7 @@
 > **对比对象：** ArtInChip UIBuilder、BEKEN LVGL UI Designer、LVGL Pro、SquareLine Studio、Persim Studio、FlyThings IDE、**EEZ Studio**  
 > **输入材料：** `artinchip/`、`beken/`、`lvgl_pro/`、`quareline/`、`rt-thread/`、`中科世为/`、`EEZ Studio/` 既有分析 / 仿制 / 竞品逆向与重构设计文档；官网与公开对比（lvgl.io/pro、squareline.io、envox.eu、developer.flythings.cn、aicdoc、博通集成公开资料、社区对比等）  
 > **用途：** 为自研「拖拽式 UI PC 工具」做范式选型、功能优先级、实现路径与风险边界评估  
-> **日期：** 2026-07-28（含 EEZ Studio 增补；**2026-08-01** 增补 Beken 属性面板对标说明 §4.2.1）  
+> **日期：** 2026-07-28（含 EEZ Studio 增补；**2026-08-01** 增补 Beken 属性面板对标说明 §4.2.1；**2026-08-03** 增补样式背景图资源选择对标缺口 §4.2.1；**同日** 增补画布工作台对标 §4.2.2，且定为 MVP/P0）  
 
 ---
 
@@ -156,11 +156,29 @@ Beken LVGL UI Designer 2.0.3 右侧 **属性 | 事件** 面板为本产品 **L1 
 | 面板分组 | 位置信息 → 属性 → 行为配置 → 样式 | 同序；MVP 缺行为/完整样式 |
 | 控件规格 | 38 种 + AI `component-specs/` | V1 目标 38 种；MVP 子集（FR-014） |
 | 样式模型 | Part × State × 子组（背景/字体/边框…） | FR-017～018；颜色 `#RRGGBBAA` |
+| 背景图资源 | 样式背景图可从资源列表/文件夹选择 | **须** `bg_image` + `AssetsDialog`（FR-016c）；禁止仅手填 |
+| 图片 props | `src` 等从资源选择 | `DynamicPropForm` imageSrc 已对齐 |
 | 复杂数据 | `extraData` 内嵌编辑器（列表/表格/图表） | FR-016b；禁止用 `children` 模拟 |
 | 页面根 | 「屏幕信息」（宽/高，无锚点格） | FR-016a |
 | 截图与手册 | `docs/beken界面/属性面板/` | `docs/工具详细说明手册/控件属性面板使用说明.md` |
 
-**结论：** 属性面板深度与 Part/State 是 Beken 相对 SquareLine 的差异化强项之一；自研 V1 应补齐至用户手册 §5.0 规格，MVP 保证几何 + 常用 `props` + `main.default` 样式即可闭环。
+**结论：** 属性面板深度与 Part/State 是 Beken 相对 SquareLine 的差异化强项之一；自研 V1 应补齐至用户手册 §5.0 规格，MVP 保证几何 + 常用 `props` + `main.default` 样式即可闭环。样式 `bg_image` 资源选择见属性面板详设 §6.4 / FR-016c。
+
+#### 4.2.2 画布工作台 — 自研对标（ForgeUI，**MVP/P0**）
+
+> **截图：** `docs/竞品截图/bk的设计器.png`、`docs/竞品截图/uibuilder的设计器.png`。  
+> **需求落点：** 设计需求 V2.18 §3.7.5、FR-021a～d、FR-010g。
+
+| 能力 | Beken | UIBuilder | ForgeUI 采纳 |
+|------|-------|-----------|--------------|
+| 上/左标尺 + 屏区高亮 | ✓ | ✓ | **P0**（FR-021a） |
+| 设备框 = 工程分辨率 + 深色舞台 | ✓ | ✓ | **P0**（FR-021c） |
+| 舞台网格 | ✓ | ✓ | **P0**（默认开） |
+| 缩放 % +「视图」 | ✓ | ✓（图标为主） | **P0**（FR-021b） |
+| 指针坐标 | — | ✓ | **P0**（FR-021d；默认开） |
+| 底栏多 Tab | 日志在画布下 | 日志/资源/配置/事件 | **P0**：日志/资源/配置（FR-010g）；**事件不迁出右栏** |
+
+**结论：** 画布 chrome 是设计器「像不像专业工具」的第一印象；不得标为 V1 抛光项。壳层仍以 Beken 右栏 **属性\|事件** 为 L1。
 
 **预览（体验分水岭）**
 
@@ -310,6 +328,7 @@ Beken LVGL UI Designer 2.0.3 右侧 **属性 | 事件** 面板为本产品 **L1 
 | 优先级 | 功能 | 对标来源 | MVP？ |
 |--------|------|----------|-------|
 | P0 | 工程 / 多页 / 拖拽 / 属性（几何 + 常用 props）/ 基础控件集 | 七家共有 | 是 |
+| P0 | **画布工作台**（标尺/设备框网格/缩放视图/指针坐标/底栏辅助 Tab） | Beken / UIBuilder 截图 | **是**（FR-021a～d、FR-010g） |
 | P1 | 全量控件属性（38 种 + extraData）+ Part/State 样式 + 命名主题 | Beken / UIBuilder / Pro / EEZ | 建议 |
 | P0 | 明文 Schema + 校验 | Beken / EEZ / 自研共识 | 是 |
 | P0 | C CodeGen + 用户区不覆盖 | Beken / UIBuilder / SquareLine / EEZ | 是 |
@@ -348,6 +367,7 @@ Beken LVGL UI Designer 2.0.3 右侧 **属性 | 事件** 面板为本产品 **L1 
 | 先做花哨 IDE | 无 Schema/CodeGen 导致不可验收 | 先跑通 Hello 生成与仿真 |
 | 追求 L4/L5 | 法律与工程双高成本 | 功能兼容即可 |
 | 画布用 Web 冒充最终像素 | Beken/Persim 已暴露「设计器≠板上」 | MVP 即以 LVGL 仿真为准 |
+| 把画布 chrome 当远期抛光 | Beken/UIBuilder 标尺/缩放/网格为基本盘 | 需求 V2.18：FR-021a～d、FR-010g 全 P0 |
 | 绑定单一芯片过早 | UIBuilder 路径难迁移 | 核心生成器芯片无关；SDK 拷贝做插件 |
 | 低估宿主工程 | Persim/FlyThings 像「半个 OS」 | 非明确需求不做 B |
 | **把 EEZ 全家桶当 MVP** | Flow+仪器+多类型拖垮专项 | 只仿 LVGL UI 主路径；或直接用官方 EEZ |

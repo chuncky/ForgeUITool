@@ -20,7 +20,7 @@
 
           <Canvas />
 
-          <LogPanel />
+          <BottomAuxPanel />
 
         </div>
 
@@ -38,10 +38,27 @@
 
     <AssetsDialog />
 
+    <ColorLibraryDialog />
+    <SaveStyleDialog />
+    <StyleLibraryDialog />
+    <I18nDialog />
+
+    <AnimationTimelineDialog />
+
+    <LogicGraphDialog />
+
+    <MemoryEstimateDialog />
+
+    <WasmEmbedDialog />
+
+    <HistoryDialog />
+
     <AiAssistDialog />
 
     <CodeEditorDrawer />
 
+    <AiTransactionBar />
+    <WidgetContextMenu />
   </div>
 
 </template>
@@ -64,19 +81,49 @@ import ProjectSettingsDialog from "./ProjectSettingsDialog.vue";
 
 import AssetsDialog from "./AssetsDialog.vue";
 
+import ColorLibraryDialog from "./ColorLibraryDialog.vue";
+import SaveStyleDialog from "./SaveStyleDialog.vue";
+import StyleLibraryDialog from "./StyleLibraryDialog.vue";
+
+import I18nDialog from "./I18nDialog.vue";
+
+import AnimationTimelineDialog from "./AnimationTimelineDialog.vue";
+
+import LogicGraphDialog from "./LogicGraphDialog.vue";
+
+import MemoryEstimateDialog from "./MemoryEstimateDialog.vue";
+
+import WasmEmbedDialog from "./WasmEmbedDialog.vue";
+
+import HistoryDialog from "./HistoryDialog.vue";
+
 import AiAssistDialog from "./AiAssistDialog.vue";
 
 import CodeEditorDrawer from "./CodeEditorDrawer.vue";
 
-import LogPanel from "./LogPanel.vue";
+import BottomAuxPanel from "./BottomAuxPanel.vue";
+import AiTransactionBar from "./AiTransactionBar.vue";
+import WidgetContextMenu from "./WidgetContextMenu.vue";
 
 import { useProjectStore } from "../stores/project";
 import { useUiStore } from "../stores/ui";
+import { isEditableKeyboardTarget } from "../utils/keyboard";
 
 const ui = useUiStore();
 const store = useProjectStore();
+let offAi: (() => void) | undefined;
 
 function onKeyDown(e: KeyboardEvent) {
+  if (isEditableKeyboardTarget(e.target)) return;
+
+  if (e.key === "Delete" || e.key === "Backspace") {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (!store.selectedId || store.selectedId === store.screenId) return;
+    e.preventDefault();
+    void store.removeSelected();
+    return;
+  }
+
   if (!e.ctrlKey || e.altKey) return;
   const key = e.key.toLowerCase();
   if (key === "z" && !e.shiftKey) {
@@ -91,8 +138,17 @@ function onKeyDown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener("keydown", onKeyDown));
-onUnmounted(() => window.removeEventListener("keydown", onKeyDown));
+onMounted(() => {
+  window.addEventListener("keydown", onKeyDown);
+  offAi = window.forgeuiDesktop?.onAiModelUpdated?.((payload) => {
+    store.applyAiModelUpdate(payload);
+  });
+  void store.refreshAiTransactionState();
+});
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeyDown);
+  offAi?.();
+});
 </script>
 
 
@@ -103,7 +159,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown));
 
   display: grid;
 
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
 
   height: 100%;
 
@@ -185,7 +241,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown));
 
 
 
-.center-stack :deep(.canvas-wrap) {
+.center-stack :deep(.canvas-root) {
 
   flex: 1;
 

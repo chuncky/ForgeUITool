@@ -1,4 +1,10 @@
 #include "screen_{{screen.id}}.h"
+{{#each screen.imageIncludes}}
+#include "../image/{{this}}.h"
+{{/each}}
+{{#each screen.fontIncludes}}
+#include "../fonts/{{this}}.h"
+{{/each}}
 
 static lv_obj_t *{{screen.screenSym}};
 

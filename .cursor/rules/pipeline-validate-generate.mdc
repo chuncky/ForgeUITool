@@ -1,0 +1,30 @@
+---
+description: 改动后必须保证 validate→generate→preview 管道可用，并跑 test:pipeline
+globs: schemas/**/*,packages/core/**/*,packages/codegen/**/*,packages/preview-host/**/*,apps/designer/**/*,tests/**/*
+alwaysApply: false
+---
+
+# 代码生成管道守卫
+
+修改 schema / core / codegen / designer / preview 相关代码前，先按 **docs-first-then-code** 更新文档；改完后必须确认**校验、代码生成、预览准备（及本地可编译时的编译）**不被破坏。
+
+## 必做
+
+1. 若改动了写入 `project.json` 的字段（如 `themes` / `colors`），同步更新：
+   - 相关 docs（字段契约）
+   - `packages/core/src/types.ts`
+   - `schemas/project.schema.json`
+   - 对应契约测试（如 `tests/schema_themes_style_library.test.ts` 中的字段列表）
+2. 改完后运行：
+
+```bash
+npm run test:pipeline
+```
+
+该脚本覆盖：schema 契约、样式库 validate+generate、preview prepare、CLI validate、M3 prepare、long_mode/字号 CodeGen 等。
+
+## 禁止
+
+- 只改 TypeScript 类型/UI 持久化字段却不改 JSON Schema（会导致 `E_SCHEMA_001`，生成按钮失败）
+- 用已被本地污染的 `templates/hello-dual-screen` 做断言；优先 `createProject({ fromTemplate: "blank" })`
+- 把需要完整 LVGL 工具链的编译失败当成日常 vitest 硬失败（`buildOnly` 可在缺 cmake/LVGL 时 soft-skip）

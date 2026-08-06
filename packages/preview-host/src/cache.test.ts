@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   computeConfigureFingerprint,
+  generatedAssetSourcesListing,
   generatedSourcesFingerprint,
   needsReconfigure,
   PREVIEW_TEMPLATE_VERSION,
@@ -22,6 +23,35 @@ describe("preview incremental cache (FR-061b)", () => {
     fs.writeFileSync(path.join(gen, "settings.c"), "screen2");
     const b = generatedSourcesFingerprint(tmp);
     expect(a).not.toBe(b);
+  });
+
+  it("configure fingerprint changes when image/ or fonts/ .c appear (link fix)", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-fp-assets-"));
+    const gen = path.join(tmp, "forgeui_generated");
+    const tpl = path.join(tmp, "tpl");
+    fs.mkdirSync(path.join(gen, "screens"), { recursive: true });
+    fs.mkdirSync(tpl, { recursive: true });
+    for (const n of ["CMakeLists.txt", "main.c", "hal.c", "lv_conf.h", "optimize_drivers.cmake"]) {
+      fs.writeFileSync(path.join(tpl, n), n);
+    }
+    fs.writeFileSync(path.join(gen, "screens", "home.c"), "s");
+    expect(generatedAssetSourcesListing(tmp)).toBe("screens/home.c");
+    const base = {
+      templateVersion: PREVIEW_TEMPLATE_VERSION,
+      projectRoot: tmp,
+      templateDir: tpl,
+      lvglRoot: "/lvgl",
+      sdl2Root: "/sdl2",
+      repoRoot: "/repo",
+      display: { width: 480, height: 320, colorDepth: 16 },
+      lvglVersion: "9.10.0",
+    };
+    const a = computeConfigureFingerprint(base);
+    fs.mkdirSync(path.join(gen, "image"), { recursive: true });
+    fs.writeFileSync(path.join(gen, "image", "forgeui_img_x.c"), "i");
+    expect(generatedAssetSourcesListing(tmp)).toContain("image/forgeui_img_x.c");
+    const b = computeConfigureFingerprint(base);
+    expect(b).not.toBe(a);
   });
 
   it("skips reconfigure when fingerprint matches cache file", () => {

@@ -12,6 +12,10 @@
       :key="j"
       :action="action"
       :screens="screens"
+      :nodes="nodes"
+      :locales="locales"
+      :animations="animations"
+      :variables="variables"
       @update="(a) => updateAction(j, a)"
       @remove="removeAction(j)"
     />
@@ -30,7 +34,11 @@ import ActionRow from "./ActionRow.vue";
 const props = defineProps<{
   binding: EventBinding;
   screens: Array<{ id: string }>;
+  nodes?: Array<{ id: string; type: string; label: string }>;
   triggers: readonly string[];
+  locales?: string[];
+  animations?: string[];
+  variables?: string[];
 }>();
 
 const emit = defineEmits<{

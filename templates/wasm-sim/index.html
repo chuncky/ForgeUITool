@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ForgeUI Wasm Preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a1e;
+      color: #e8e8ec;
+      font-family: system-ui, sans-serif;
+    }
+    header { margin-bottom: 8px; font-size: 13px; opacity: 0.85; }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+    .toolbar select {
+      background: #2a2a30;
+      color: #e8e8ec;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+    #wrap {
+      border: 1px solid #444;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      background: #000;
+    }
+    canvas { display: block; }
+    #status { margin-top: 10px; font-size: 12px; color: #888; }
+  </style>
+</head>
+<body>
+  <header>ForgeUI Wasm Preview</header>
+  <div class="toolbar" id="ir-toolbar">
+    <label for="screen-select">页面</label>
+    <select id="screen-select" disabled aria-label="切换预览页面"></select>
+  </div>
+  <div id="wrap"><canvas id="canvas"></canvas></div>
+  <p id="status">Loading preview-ir.json…</p>
+  <script>
+    (async () => {
+      try {
+        const r = await fetch("preview-mode.json", { cache: "no-store" });
+        if (r.ok) {
+          const mode = await r.json();
+          if (mode.mode === "lvgl-wasm" && mode.html) {
+            window.location.replace(mode.html);
+            return;
+          }
+        }
+      } catch (_) { /* IR shell */ }
+    })();
+  </script>
+  <script src="preview-shell.js"></script>
+</body>
+</html>

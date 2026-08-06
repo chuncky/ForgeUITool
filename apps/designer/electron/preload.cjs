@@ -1,19 +1,30 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("forgeuiDesktop", {
+  openImageFiles: () => ipcRenderer.invoke("dialog:openImageFiles"),
+  openFontFiles: () => ipcRenderer.invoke("dialog:openFontFiles"),
+  importImages: (args) => ipcRenderer.invoke("project:importImages", args),
+  importFonts: (args) => ipcRenderer.invoke("project:importFonts", args),
   openProjectDir: () => ipcRenderer.invoke("dialog:openProjectDir"),
   chooseNewProjectDir: () => ipcRenderer.invoke("dialog:chooseNewProjectDir"),
   getRepoRoot: () => ipcRenderer.invoke("app:getRepoRoot"),
   openProjectFolder: () => ipcRenderer.invoke("shell:openProjectFolder"),
   readDoc: (id) => ipcRenderer.invoke("app:readDoc", id),
   openProject: (dir) => ipcRenderer.invoke("project:open", dir),
+  importForgeui: () => ipcRenderer.invoke("project:importForgeui"),
+  importFigma: () => ipcRenderer.invoke("project:importFigma"),
   openHello: () => ipcRenderer.invoke("project:openHello"),
   createProject: (opts) => ipcRenderer.invoke("project:create", opts),
   saveProject: () => ipcRenderer.invoke("project:save"),
   updateMeta: (patch) => ipcRenderer.invoke("project:updateMeta", patch),
+  seedI18n: (args) => ipcRenderer.invoke("project:seedI18n", args ?? {}),
+  exportXliff: (args) => ipcRenderer.invoke("project:exportXliff", args ?? {}),
+  importXliff: (args) => ipcRenderer.invoke("project:importXliff", args ?? {}),
   updateNode: (args) => ipcRenderer.invoke("project:updateNode", args),
   setEvents: (args) => ipcRenderer.invoke("project:setEvents", args),
   addNode: (args) => ipcRenderer.invoke("project:addNode", args),
+  saveAsCustomWidget: (args) => ipcRenderer.invoke("project:saveAsCustomWidget", args),
+  addCustomWidget: (args) => ipcRenderer.invoke("project:addCustomWidget", args),
   removeNode: (args) => ipcRenderer.invoke("project:removeNode", args),
   addScreen: (opts) => ipcRenderer.invoke("project:addScreen", opts),
   renameScreen: (args) => ipcRenderer.invoke("project:renameScreen", args),
@@ -25,15 +36,21 @@ contextBridge.exposeInMainWorld("forgeuiDesktop", {
   moveNodeOrder: (args) => ipcRenderer.invoke("project:moveNodeOrder", args),
   setNodeFlags: (args) => ipcRenderer.invoke("project:setNodeFlags", args),
   alignNode: (args) => ipcRenderer.invoke("project:alignNode", args),
+  alignNodes: (args) => ipcRenderer.invoke("project:alignNodes", args),
   undo: (editor) => ipcRenderer.invoke("project:undo", editor),
   redo: (editor) => ipcRenderer.invoke("project:redo", editor),
   historyState: () => ipcRenderer.invoke("project:historyState"),
+  listSnapshots: () => ipcRenderer.invoke("project:listSnapshots"),
+  createSnapshot: (label) => ipcRenderer.invoke("project:createSnapshot", label),
+  restoreSnapshot: (id) => ipcRenderer.invoke("project:restoreSnapshot", id),
   listCodeFiles: () => ipcRenderer.invoke("project:listCodeFiles"),
   readProjectFile: (relPath) => ipcRenderer.invoke("project:readFile", relPath),
+  resolveAssetDataUrl: (relPath) => ipcRenderer.invoke("project:assetDataUrl", relPath),
   writeUserFile: (args) => ipcRenderer.invoke("project:writeUserFile", args),
   listWidgets: () => ipcRenderer.invoke("project:listWidgets"),
   generate: (opts) => ipcRenderer.invoke("tool:generate", opts ?? {}),
   preview: (opts) => ipcRenderer.invoke("tool:preview", opts),
+  hotReloadPreview: () => ipcRenderer.invoke("tool:hotReloadPreview"),
   onPreviewBuildLog: (cb) => {
     const handler = (_e, line) => cb(line);
     ipcRenderer.on("preview:buildLog", handler);
@@ -41,4 +58,17 @@ contextBridge.exposeInMainWorld("forgeuiDesktop", {
   },
   exportSdk: (opts) => ipcRenderer.invoke("tool:exportSdk", opts),
   pack: () => ipcRenderer.invoke("tool:pack"),
+  packPreview: () => ipcRenderer.invoke("tool:packPreview"),
+  getAiTransactionState: () => ipcRenderer.invoke("ai:getTransactionState"),
+  commitAiTransaction: () => ipcRenderer.invoke("ai:commitTransaction"),
+  rollbackAiTransaction: () => ipcRenderer.invoke("ai:rollbackTransaction"),
+  getAiPanelState: () => ipcRenderer.invoke("ai:getPanelState"),
+  setupAiWorkspace: () => ipcRenderer.invoke("ai:setupWorkspace"),
+  openAiWorkspaceFolder: () => ipcRenderer.invoke("ai:openWorkspaceFolder"),
+  pingAiBridge: () => ipcRenderer.invoke("ai:pingBridge"),
+  onAiModelUpdated: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on("ai:modelUpdated", handler);
+    return () => ipcRenderer.removeListener("ai:modelUpdated", handler);
+  },
 });

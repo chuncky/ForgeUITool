@@ -10,7 +10,10 @@
           v-for="ref in store.loaded.project.screens"
           :key="ref.id"
           class="page-row"
-          :class="{ active: ref.id === store.screenId }"
+          :class="{
+            active: ref.id === store.screenId,
+            startup: ref.id === store.loaded.project.defaultScreen,
+          }"
         >
           <template v-if="editingId === ref.id">
             <input
@@ -78,13 +81,11 @@
     </FloatingPanelMenu>
 
     <FloatingPanelMenu v-model:open="widgetMenuOpen" :anchor="widgetMenuAnchor">
-      <button @click="onWidgetMenu('lock')">{{ widgetMenuNode?.locked ? "解锁" : "锁定" }}</button>
-      <button @click="onWidgetMenu('copy')">复制</button>
-      <button @click="onWidgetMenu('up')">上移</button>
-      <button @click="onWidgetMenu('down')">下移</button>
-      <button @click="onWidgetMenu('top')">置顶</button>
-      <button @click="onWidgetMenu('bottom')">置底</button>
-      <button class="danger" @click="onWidgetMenu('delete')">删除</button>
+      <WidgetActionMenuItems
+        :locked="widgetMenuNode?.locked"
+        :hidden="widgetMenuNode?.hidden"
+        @action="onWidgetMenu"
+      />
     </FloatingPanelMenu>
   </section>
 </template>
@@ -93,10 +94,14 @@
 import { computed, nextTick, ref } from "vue";
 import type { UiNode } from "../env";
 import { useProjectStore } from "../stores/project";
+import { useUiStore } from "../stores/ui";
+import { runWidgetMenuAction } from "../utils/widget-menu";
 import ComponentTreeNode from "./ComponentTreeNode.vue";
 import FloatingPanelMenu from "./FloatingPanelMenu.vue";
+import WidgetActionMenuItems from "./WidgetActionMenuItems.vue";
 
 const store = useProjectStore();
+const ui = useUiStore();
 const editingId = ref<string | null>(null);
 const editName = ref("");
 const editInput = ref<HTMLInputElement | null>(null);
@@ -167,6 +172,7 @@ function openPageMenu(id: string, e: MouseEvent) {
 
 function openWidgetMenu(node: UiNode, el: HTMLElement) {
   pageMenuOpen.value = false;
+  ui.closeWidgetContextMenu();
   if (widgetMenuOpen.value && widgetMenuNode.value?.id === node.id) {
     widgetMenuOpen.value = false;
     return;
@@ -193,14 +199,7 @@ async function onWidgetMenu(action: string) {
   const node = widgetMenuNode.value;
   widgetMenuOpen.value = false;
   if (!node) return;
-  const id = node.id;
-  if (action === "lock") await store.toggleNodeLocked(id);
-  else if (action === "copy") await store.duplicateNodeById(id);
-  else if (action === "up") await store.moveNodeOrderById(id, "up");
-  else if (action === "down") await store.moveNodeOrderById(id, "down");
-  else if (action === "top") await store.moveNodeOrderById(id, "top");
-  else if (action === "bottom") await store.moveNodeOrderById(id, "bottom");
-  else if (action === "delete") await store.removeNodeById(id);
+  await runWidgetMenuAction(store, node, action);
 }
 </script>
 
@@ -275,15 +274,49 @@ async function onWidgetMenu(action: string) {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-bottom: 2px;
-  border-radius: 4px;
+  margin-bottom: 4px;
+  border-radius: 6px;
   border: 1px solid transparent;
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .page-row.active {
   border-color: var(--accent);
   background: rgba(61, 156, 240, 0.12);
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* FR-011c: 启动页整行冷青蓝分色 + 立体（沿用 accent 色系）；禁止页名外框方案 */
+.page-row.startup {
+  color: #e8f4ff;
+  border-color: #3d9cf0;
+  background: linear-gradient(180deg, #5eb0f7 0%, #3d9cf0 48%, #2a6fad 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(200, 230, 255, 0.55),
+    inset 0 -1px 0 rgba(12, 40, 72, 0.35),
+    0 2px 0 #1a4a78,
+    0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.page-row.startup.active {
+  border-color: #7ec4f8;
+  background: linear-gradient(180deg, #6fbbf9 0%, #4aa3f2 48%, #2f78b8 100%);
+  box-shadow:
+    inset 3px 0 0 #0d2a48,
+    inset 0 1px 0 rgba(220, 240, 255, 0.65),
+    inset 0 -1px 0 rgba(12, 40, 72, 0.28),
+    0 2px 0 #1a4a78,
+    0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.page-row.startup .page-label,
+.page-row.startup .icon-btn {
+  color: inherit;
+}
+
+.page-row.startup .icon-btn.on {
+  opacity: 1;
+  filter: drop-shadow(0 1px 0 rgba(220, 240, 255, 0.45));
 }
 
 .page-label {

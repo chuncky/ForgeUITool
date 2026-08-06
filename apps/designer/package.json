@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "description": "ForgeUI Kit Electron + Vue3 designer",
-  "main": "electron/main.mjs",
+  "author": "ForgeUI",
+  "main": "electron/bootstrap.cjs",
   "scripts": {
     "dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on http://localhost:5173 && cross-env FORGEUI_DESIGNER_DEV=1 electron .\"",
     "dev:ui": "vite --port 5173 --strictPort",
     "build:renderer": "vite build",
     "build": "vite build",
-    "start": "cross-env FORGEUI_DESIGNER_DEV=0 electron ."
+    "start": "cross-env FORGEUI_DESIGNER_DEV=0 electron .",
+    "pack": "electron-builder --config electron-builder.yml --win --x64"
   },
   "dependencies": {
     "pinia": "^3.0.1",

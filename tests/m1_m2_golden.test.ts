@@ -44,6 +44,8 @@ describe("G-02 generate ui_init", () => {
     expect(navC).toContain('strcmp(screen_id, "settings")');
     expect(uiC).toContain("screen_home_create");
     expect(fs.existsSync(path.join(tmp, "forgeui_generated/custom/ui_events.c"))).toBe(true);
+    expect(fs.existsSync(path.join(tmp, "forgeui_generated/custom/custom_func.c"))).toBe(true);
+    expect(uiC).toContain("forgeui_custom_init()");
     expect(fs.readFileSync(path.join(tmp, "forgeui_generated/custom/ui_events.c"), "utf8")).toContain("on_btn_next");
     expect(fs.existsSync(path.join(tmp, "forgeui_generated/forgeui_generated.cmake"))).toBe(true);
   });
@@ -111,7 +113,7 @@ describe("create blank project", () => {
     const root = path.join(tmp, "proj");
     createProject({ root, name: "blank_demo", fromTemplate: "blank" });
     const loaded = openProject(root);
-    expect(loaded.project.platform).toBe("qm10xd");
+    expect(loaded.project.platform).toBeUndefined();
     expect(loaded.project.lvglVersion).toBe("9.10");
     expect(loaded.project.deliveryMode).toBe("both");
     expect(loaded.screens.has("home")).toBe(true);

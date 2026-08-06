@@ -27,8 +27,36 @@ declare global {
       chooseNewProjectDir: () => Promise<string | null>;
       getRepoRoot: () => Promise<string>;
       openProjectFolder: () => Promise<{ ok: boolean; error?: string; path?: string }>;
+      openImageFiles: () => Promise<string[]>;
+      openFontFiles: () => Promise<string[]>;
+      importImages: (args: {
+        paths: string[];
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { imported?: Array<{ id: string; path: string }> }>;
+      importFonts: (args: {
+        paths: string[];
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { imported?: Array<{ id: string; path: string; size?: number }> }>;
       readDoc: (id: string) => Promise<string>;
       openProject: (dir: string) => Promise<SerializedProject>;
+      importForgeui: () => Promise<{
+        ok: boolean;
+        cancelled?: boolean;
+        loaded?: SerializedProject;
+        diagnostics?: Diagnostic[];
+        canUndo?: boolean;
+        canRedo?: boolean;
+      }>;
+      importFigma: () => Promise<{
+        ok: boolean;
+        cancelled?: boolean;
+        loaded?: SerializedProject;
+        diagnostics?: Diagnostic[];
+        canUndo?: boolean;
+        canRedo?: boolean;
+      }>;
       openHello: () => Promise<SerializedProject>;
       createProject: (opts: {
         root: string;
@@ -50,6 +78,19 @@ declare global {
         _editor?: EditorContext;
         skipHistory?: boolean;
       }) => Promise<MutationResult>;
+      seedI18n: (args?: {
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { added?: number }>;
+      exportXliff: (args?: {
+        sourceLocale?: string;
+        targetLocale?: string;
+        onlyMissing?: boolean;
+      }) => Promise<{ ok: boolean; canceled?: boolean; path?: string; onlyMissing?: boolean }>;
+      importXliff: (args?: {
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { updated?: number; canceled?: boolean; path?: string }>;
       updateNode: (args: {
         screenId: string;
         nodeId: string;
@@ -68,6 +109,23 @@ declare global {
         screenId: string;
         parentId: string;
         type: string;
+        frame?: { x: number; y: number; w?: number; h?: number };
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { node: UiNode }>;
+      saveAsCustomWidget: (args: {
+        screenId: string;
+        nodeId: string;
+        id?: string;
+        name?: string;
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { customWidget: { id: string; name: string } }>;
+      addCustomWidget: (args: {
+        screenId: string;
+        parentId: string;
+        customId: string;
+        frame?: { x: number; y: number; w?: number; h?: number };
         _editor?: EditorContext;
         skipHistory?: boolean;
       }) => Promise<MutationResult & { node: UiNode }>;
@@ -140,11 +198,28 @@ declare global {
         _editor?: EditorContext;
         skipHistory?: boolean;
       }) => Promise<MutationResult>;
+      alignNodes: (args: {
+        screenId: string;
+        nodeIds: string[];
+        mode: string;
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult>;
       undo: (editor: EditorContext) => Promise<UndoRedoResult>;
       redo: (editor: EditorContext) => Promise<UndoRedoResult>;
       historyState: () => Promise<{ canUndo: boolean; canRedo: boolean }>;
+      listSnapshots: () => Promise<Array<{ id: string; label?: string; createdAt: string }>>;
+      createSnapshot: (label?: string) => Promise<{ ok: boolean; meta: { id: string; label?: string; createdAt: string }; loaded: SerializedProject }>;
+      restoreSnapshot: (id: string) => Promise<UndoRedoResult & { ok: boolean }>;
       listCodeFiles: () => Promise<Array<{ relPath: string; editable: boolean }>>;
       readProjectFile: (relPath: string) => Promise<{ ok: boolean; content?: string; error?: string; relPath?: string }>;
+      resolveAssetDataUrl: (relPath: string) => Promise<{
+        ok: boolean;
+        dataUrl?: string;
+        relPath?: string;
+        mime?: string;
+        error?: string;
+      }>;
       writeUserFile: (args: { relPath: string; content: string }) => Promise<{ ok: boolean; relPath: string }>;
       listWidgets: () => Promise<WidgetMeta[]>;
       generate: (opts?: {
@@ -157,13 +232,21 @@ declare global {
         buildOnly?: boolean;
         runOnly?: boolean;
         skipGenerate?: boolean;
+        backend?: "sdl" | "wasm";
       }) => Promise<{
         ok: boolean;
         diagnostics: Diagnostic[];
         buildLogs?: string[];
         elapsedMs?: number;
         autoSaved?: boolean;
+        previewUrl?: string | null;
         session?: { buildDir: string; pid?: number; logs?: string[] };
+      }>;
+      hotReloadPreview: () => Promise<{
+        ok: boolean;
+        buildDir?: string;
+        message?: string;
+        diagnostics?: Diagnostic[];
       }>;
       /** Subscribe to live cmake/build output during tool:preview (returns unsubscribe). */
       onPreviewBuildLog: (cb: (line: string) => void) => () => void;
@@ -177,6 +260,50 @@ declare global {
         outDir: string;
         diagnostics: Diagnostic[];
       }>;
+      packPreview: () => Promise<{
+        ok: boolean;
+        outDir: string;
+        diagnostics: Diagnostic[];
+        widgetCount: number;
+        screenCount: number;
+        entryScreen: string | null;
+        packageLogic: { allowedActions?: string[]; firmwareOnlyActions?: string[] } | null;
+        /** FR-086 deepen: parsed A2 screen trees for canvas overlay */
+        screens: Array<{ id: string; name: string; document: UiNode }>;
+      }>;
+      getAiTransactionState: () => Promise<{ pending: boolean; changeCount: number }>;
+      commitAiTransaction: () => Promise<{
+        ok: boolean;
+        loaded?: SerializedProject;
+        pending?: boolean;
+        changeCount?: number;
+        error?: string;
+      }>;
+      rollbackAiTransaction: () => Promise<{
+        ok: boolean;
+        loaded?: SerializedProject;
+        pending?: boolean;
+        changeCount?: number;
+        error?: string;
+      }>;
+      getAiPanelState: () => Promise<{
+        ok: boolean;
+        bridgePort: number;
+        projectOpen: boolean;
+        previewBusy: boolean;
+        aiWorkspacePath: string | null;
+        workspaceReady: boolean;
+        transaction: { pending: boolean; changeCount: number };
+        tools: Array<{ name: string; description: string; implemented: boolean }>;
+        mcpConfigJson: string;
+        bridgePing: { ok?: boolean; status?: string; error?: string };
+      }>;
+      setupAiWorkspace: () => Promise<{ ok: boolean; aiWorkspacePath?: string; error?: string }>;
+      openAiWorkspaceFolder: () => Promise<{ ok: boolean; aiWorkspacePath?: string; error?: string }>;
+      pingAiBridge: () => Promise<{ ok: boolean; data?: unknown; error?: string }>;
+      onAiModelUpdated: (
+        cb: (payload: { loaded: SerializedProject; pending?: boolean; changeCount?: number }) => void,
+      ) => () => void;
     };
   }
 }
@@ -195,7 +322,11 @@ export interface PropSpecMeta {
   default?: unknown;
   enum?: string[];
   enumLabels?: Record<string, string>;
+  /** text/string: prefer textarea when true (e.g. options one-per-line). */
+  multiline?: boolean;
 }
+
+export type ExtraDataEditorKind = "items" | "tabs" | "buttons" | "series" | "cells" | "keymap" | "frames";
 
 export interface WidgetMeta {
   type: string;
@@ -207,12 +338,17 @@ export interface WidgetMeta {
   props?: PropSpecMeta[];
   styleParts?: string[];
   events?: string[];
+  extraDataEditor?: ExtraDataEditorKind;
 }
 
 export type Action =
   | { type: "CHANGE_SCREEN"; target: string; anim?: string; ms?: number }
   | { type: "CALL_FUNCTION"; handler: string }
-  | { type: "SET_PROP"; nodeId: string; prop: string; value: unknown };
+  | { type: "SET_PROP"; nodeId: string; prop: string; value: unknown }
+  | { type: "SWITCH_LANGUAGE"; locale: string }
+  | { type: "PLAY_ANIMATION"; animationId: string }
+  | { type: "SET_VAR"; variableId: string; value: unknown }
+  | { type: "TOGGLE_VAR"; variableId: string };
 
 export interface EventBinding {
   id?: string;
@@ -224,9 +360,11 @@ export interface UiNode {
   type: string;
   id: string;
   name: string;
-  frame: { x: number; y: number; w: number; h: number };
+  frame: { x: number; y: number; w: number; h: number; anchorX?: 0 | 1 | 2; anchorY?: 0 | 1 | 2; rotation?: number };
   props: Record<string, unknown>;
   style: Record<string, unknown>;
+  styleRef?: string;
+  extraData?: Record<string, unknown>;
   events: EventBinding[];
   children: UiNode[];
   locked?: boolean;
@@ -237,7 +375,7 @@ export interface SerializedProject {
   root: string;
   project: {
     name: string;
-    platform: string;
+    platform?: string;
     lvglVersion: string;
     deliveryMode: string;
     previewBackend?: string;
@@ -246,6 +384,37 @@ export interface SerializedProject {
     display: { width: number; height: number; colorDepth: number };
     screens: Array<{ id: string; file: string }>;
     assets?: { images?: unknown[]; fonts?: unknown[] };
+    colors?: Array<{ id: string; name: string; value: string }>;
+    themes?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      createdAt?: string;
+      widgetType?: string;
+      part: string;
+      state: string;
+      props: Record<string, unknown>;
+    }>;
+    customWidgets?: Array<{ id: string; name: string; root: UiNode; createdAt?: string }>;
+    i18n?: {
+      enabled: boolean;
+      defaultLocale: string;
+      previewLocale?: string;
+      locales: Array<{ id: string; name: string }>;
+      strings: Array<{ id: string; note?: string; values: Record<string, string> }>;
+    };
+    animations?: Array<{
+      id: string;
+      name: string;
+      duration: number;
+      loop?: boolean;
+      tracks: Array<{
+        id: string;
+        nodeId: string;
+        property: string;
+        keyframes: Array<{ t: number; value: number; easing?: string }>;
+      }>;
+    }>;
   };
   screens: Record<string, UiNode>;
 }

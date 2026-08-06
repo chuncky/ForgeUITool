@@ -1,4 +1,5 @@
 import type { Action, LoadedProject, Node, ProjectDocument, ScreenDocument } from "./types.js";
+import { resolveStyleWithRef } from "./themes.js";
 
 export interface WidgetIR {
   type: string;
@@ -7,6 +8,8 @@ export interface WidgetIR {
   frame: Node["frame"];
   props: Record<string, unknown>;
   style: Record<string, unknown>;
+  styleRef?: string;
+  extraData?: Record<string, unknown>;
   events: Array<{ trigger: string; actions: Action[] }>;
   children: WidgetIR[];
 }
@@ -26,16 +29,18 @@ export interface ProjectIR {
   entrySymbol: string;
 }
 
-function toWidgetIR(node: Node): WidgetIR {
+function toWidgetIR(node: Node, themes: ProjectDocument["themes"]): WidgetIR {
   return {
     type: node.type,
     id: node.id,
     name: node.name,
     frame: node.frame,
     props: node.props ?? {},
-    style: node.style ?? {},
+    style: resolveStyleWithRef(node.style, node.styleRef, themes),
+    styleRef: node.styleRef,
+    extraData: node.extraData,
     events: (node.events ?? []).map((e) => ({ trigger: e.trigger, actions: e.actions })),
-    children: (node.children ?? []).map(toWidgetIR),
+    children: (node.children ?? []).map((c) => toWidgetIR(c, themes)),
   };
 }
 
@@ -51,6 +56,7 @@ function collectHandlers(node: Node, out: Set<string>): void {
 export function buildIR(loaded: LoadedProject): ProjectIR {
   const handlers = new Set<string>();
   const screens: ScreenIR[] = [];
+  const themes = loaded.project.themes;
 
   for (const ref of loaded.project.screens) {
     const doc = loaded.screens.get(ref.id) as ScreenDocument;
@@ -58,7 +64,7 @@ export function buildIR(loaded: LoadedProject): ProjectIR {
     screens.push({
       id: doc.id,
       name: doc.name,
-      root: toWidgetIR(doc),
+      root: toWidgetIR(doc, themes),
     });
   }
 

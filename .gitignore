@@ -1,10 +1,55 @@
+# Dependencies & TS/Vite
 node_modules/
 dist/
 *.tsbuildinfo
-.forge/
 coverage/
-*.log
-.DS_Store
-apps/designer/out/
 .cache/
 .tmp/
+*.log
+.DS_Store
+
+# Designer / Electron packaging
+apps/designer/out/
+.release/
+release/
+
+# Tool & project local state (history, preview cmake tree)
+.forge/
+
+# CMake / Ninja intermediates (anywhere)
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/CTestTestfile.cmake
+**/compile_commands.json
+**/cmake-build-*/
+**/preview-build/out/
+
+# Common local build trees (not under ref/)
+/build/
+/out/
+apps/**/build/
+packages/**/build/
+templates/**/build/
+templates/**/out/
+
+# MSVC / object-level temps
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.tlog
+*.lastbuildstate
+*.recipe
+*.iobj
+*.ipdb
+*.VC.db
+*.VC.opendb
+*.su
+*.gcno
+*.gcda
+.vs/
+
+# Note: do not blanket-ignore *.exe/*.dll — ref/ vendors ship binaries already tracked.

@@ -7,7 +7,6 @@ import {
   DEFAULT_LVGL_VERSION,
   ForgeError,
   ErrorCodes,
-  MVP_PLATFORM,
 } from "@forgeui/shared";
 import type { LoadedProject, ProjectDocument, ScreenDocument } from "./types.js";
 import { validateProjectDir } from "./validate.js";
@@ -60,6 +59,34 @@ export function saveProject(loaded: LoadedProject): void {
   }
 }
 
+function resolveProjectGitignore(): string {
+  const candidates = [
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../templates/project.gitignore"),
+    path.resolve(process.cwd(), "templates/project.gitignore"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return fs.readFileSync(c, "utf8");
+  }
+  return [
+    ".forge/",
+    "**/preview-build/out/",
+    "**/CMakeFiles/",
+    "**/CMakeCache.txt",
+    "build/",
+    "out/",
+    "*.obj",
+    "*.pdb",
+    "*.log",
+    "",
+  ].join("\n");
+}
+
+function writeProjectGitignore(root: string): void {
+  const dest = path.join(root, ".gitignore");
+  if (fs.existsSync(dest)) return;
+  fs.writeFileSync(dest, resolveProjectGitignore(), "utf8");
+}
+
 function blankScreen(id: string, name: string, w: number, h: number): ScreenDocument {
   return {
     schemaVersion: "1.0.0",
@@ -106,7 +133,6 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
   }
 
   const display = opts.display ?? { width: 480, height: 320, colorDepth: 16, rotation: 0 };
-  const platform = opts.platform ?? MVP_PLATFORM;
 
   fs.mkdirSync(path.join(root, "screens"), { recursive: true });
   fs.mkdirSync(path.join(root, "assets", "images"), { recursive: true });
@@ -118,10 +144,13 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
     copyDir(templateRoot, root);
     const project = readJson<ProjectDocument>(path.join(root, "project.json"));
     project.name = opts.name;
-    project.platform = platform;
+    // D-08: do not stamp a chip platform; strip legacy template field unless caller opts in
+    if (opts.platform) project.platform = opts.platform;
+    else delete project.platform;
     if (opts.display) project.display = opts.display;
     if (opts.deliveryMode) project.deliveryMode = opts.deliveryMode;
     writeJson(path.join(root, "project.json"), project);
+    writeProjectGitignore(root);
     return openProject(root);
   }
 
@@ -129,7 +158,6 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
   const project: ProjectDocument = {
     schemaVersion: "1.0.0",
     name: opts.name,
-    platform,
     display,
     lvglVersion: DEFAULT_LVGL_VERSION,
     previewBackend: "sdl",
@@ -148,6 +176,7 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
     sdk: { path: "", copyTargetRel: "ui" },
     naming: { cPrefix: "ui_", screenPrefix: "screen_" },
   };
+  if (opts.platform) project.platform = opts.platform;
 
   const loaded: LoadedProject = {
     root,
@@ -155,5 +184,6 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
     screens: new Map([["home", home]]),
   };
   saveProject(loaded);
+  writeProjectGitignore(root);
   return loaded;
 }

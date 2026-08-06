@@ -33,5 +33,8 @@ describe("widget library registry", () => {
     expect(spinner?.styleParts).toContain("indicator");
     expect(specs.some((w) => w.type === "roller")).toBe(true);
     expect(specs.some((w) => w.type === "imagebutton")).toBe(true);
+    expect(specs.some((w) => w.type === "tabview")).toBe(true);
+    expect(specs.some((w) => w.type === "keyboard")).toBe(true);
+    expect(listPaletteWidgetSpecs().length).toBe(38);
   });
 });

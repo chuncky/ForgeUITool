@@ -8,7 +8,22 @@ import DynamicPropForm from "../apps/designer/src/components/prop-panel/DynamicP
 import type { PropSpecMeta } from "../apps/designer/src/env";
 
 vi.mock("../apps/designer/src/stores/ui", () => ({
-  useUiStore: () => ({ showAssets: false }),
+  useUiStore: () => ({
+    showAssets: false,
+    openAssetsForImagePick: vi.fn(),
+  }),
+}));
+
+vi.mock("../apps/designer/src/stores/project", () => ({
+  useProjectStore: () => ({
+    imageAssets: [],
+    i18nConfig: {
+      enabled: false,
+      strings: [],
+      defaultLocale: "zh-CN",
+      previewLocale: "zh-CN",
+    },
+  }),
 }));
 
 const SPECS: PropSpecMeta[] = [
@@ -46,12 +61,50 @@ describe("DynamicPropForm", () => {
       },
     });
 
-    expect(wrapper.find("textarea").exists()).toBe(true);
+    expect(wrapper.find('input[type="text"]').exists()).toBe(true);
+    expect(wrapper.find("textarea").exists()).toBe(false);
     expect(wrapper.find('input[type="number"]').exists()).toBe(true);
     expect(wrapper.find('input[type="checkbox"]').exists()).toBe(true);
     expect(wrapper.find("select").exists()).toBe(true);
     expect(wrapper.find('input[type="color"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain("资源");
+    expect(wrapper.text()).toContain("选择");
+  });
+
+  it("text 类型默认单行 input，不重复兜底框（两个文本框问题）", () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(DynamicPropForm, {
+      props: {
+        specs: [{ name: "text", type: "text", label: "文本", default: "Label" }],
+        nodeProps: { text: "Hello world" },
+      },
+    });
+
+    expect(wrapper.find("textarea").exists()).toBe(false);
+    const textInputs = wrapper.findAll("input").filter((n) => {
+      const t = n.attributes("type");
+      return t === undefined || t === "text";
+    });
+    expect(textInputs).toHaveLength(1);
+  });
+
+  it("multiline text 仍用 textarea（如下拉 options）", () => {
+    setActivePinia(createPinia());
+    const wrapper = mount(DynamicPropForm, {
+      props: {
+        specs: [
+          {
+            name: "options",
+            type: "text",
+            label: "选项（每行一项）",
+            default: "One\nTwo",
+            multiline: true,
+          },
+        ],
+        nodeProps: { options: "One\nTwo" },
+      },
+    });
+    expect(wrapper.findAll("textarea")).toHaveLength(1);
+    expect(wrapper.find('input[type="text"]').exists()).toBe(false);
   });
 
   it("emits change with parsed values", async () => {
@@ -60,8 +113,8 @@ describe("DynamicPropForm", () => {
       props: { specs: SPECS.slice(0, 1), nodeProps: { text: "x" } },
     });
 
-    await wrapper.find("textarea").setValue("updated");
-    await wrapper.find("textarea").trigger("change");
+    await wrapper.find('input[type="text"]').setValue("updated");
+    await wrapper.find('input[type="text"]').trigger("change");
 
     expect(wrapper.emitted("change")?.[0]).toEqual(["text", "updated"]);
   });

@@ -11,7 +11,9 @@ export type ToolbarIconId =
   | "code"
   | "ai"
   | "c-lang"
-  | "delivery";
+  | "delivery"
+  | "i18n"
+  | "timeline";
 
 /** Stroke-based icon paths (24×24 viewBox). */
 export const TOOLBAR_ICONS: Record<ToolbarIconId, string[]> = {
@@ -62,4 +64,10 @@ export const TOOLBAR_ICONS: Record<ToolbarIconId, string[]> = {
     "M3.3 7l8.7 5 8.7-5",
     "M12 22V12",
   ],
+  i18n: [
+    "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z",
+    "M2 12h20",
+    "M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z",
+  ],
+  timeline: ["M4 6h16", "M4 12h10", "M4 18h13", "M17 10l3 2-3 2"],
 };

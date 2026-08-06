@@ -54,6 +54,8 @@ export function normalizeExportFields(project: ProjectDocument): void {
     codegenDir: DEFAULT_CODEGEN_DIR,
     customSubdir: DEFAULT_CUSTOM_SUBDIR,
     packageDir: prev.packageDir ?? "packages/latest",
+    eventStubStyle: prev.eventStubStyle ?? "custom",
+    micropython: prev.micropython ?? false,
   };
 }
 

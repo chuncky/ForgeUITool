@@ -9,11 +9,12 @@ export interface CopyResult {
 }
 
 export interface GlobalConfig {
-  sdkPaths?: Partial<Record<ProjectDocument["platform"], string>>;
+  /** Optional SDK path hints keyed by delivery adapter id (e.g. qm10xd) */
+  sdkPaths?: Partial<Record<string, string>>;
 }
 
 export interface PlatformPlugin {
-  id: ProjectDocument["platform"];
+  id: string;
   displayName: string;
   defaultSdkPathHints(): string[];
   resolveSdkPath(project: ProjectDocument, globalCfg?: GlobalConfig): string | null;

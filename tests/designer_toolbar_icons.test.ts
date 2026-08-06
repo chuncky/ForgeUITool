@@ -35,6 +35,8 @@ describe("workspace toolbar icons (FR-010f)", () => {
       "ai",
       "c-lang",
       "delivery",
+      "i18n",
+      "timeline",
     ]) {
       expect(icons).toContain(`"${id}"`);
     }
@@ -62,8 +64,8 @@ describe("workspace toolbar icons (FR-010f)", () => {
       path.join(repoRoot, "apps/designer/src/components/WorkspaceToolbar.vue"),
       "utf8",
     );
-    expect(toolbar).toContain('label="项目设置"');
-    expect(toolbar).toContain('label="控件库"');
+    expect(toolbar).toContain("tt('projectSettings')");
+    expect(toolbar).toContain("tt('widgetLibrary')");
     expect(toolbar).toContain(':disabled="!store.loaded || !store.dirty"');
     expect(toolbar).toContain(':disabled="!store.canUndo"');
     expect(toolbar).toContain(':disabled="!store.canRedo"');

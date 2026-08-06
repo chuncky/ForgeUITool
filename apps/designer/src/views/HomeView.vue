@@ -19,6 +19,14 @@
           <strong>打开工程</strong>
           <span>选择含 project.json 的目录</span>
         </button>
+        <button class="card" @click="importBundle">
+          <strong>导入 .forgeui</strong>
+          <span>分享包解压到空目录并打开</span>
+        </button>
+        <button class="card" @click="importFigma">
+          <strong>导入 Figma JSON</strong>
+          <span>forgeui-figma 适配格式 → 自有工程</span>
+        </button>
         <button class="card" @click="router.push('/docs')">
           <strong>文档</strong>
           <span>上板 HELLO 与使用说明</span>
@@ -65,6 +73,16 @@ const ui = useUiStore();
 async function openProject() {
   await project.openDir();
   if (project.loaded) await router.push("/workspace");
+}
+
+async function importBundle() {
+  const ok = await project.importForgeui();
+  if (ok && project.loaded) await router.push("/workspace");
+}
+
+async function importFigma() {
+  const ok = await project.importFigma();
+  if (ok && project.loaded) await router.push("/workspace");
 }
 
 async function openHello() {
@@ -123,7 +141,7 @@ function formatTime(iso: string) {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 40px;
 }

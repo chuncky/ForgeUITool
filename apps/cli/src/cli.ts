@@ -13,13 +13,13 @@ function printHelp(): void {
 
 Usage:
   forgeui validate   <projectDir>
-  forgeui generate   <projectDir> [--clean-generated]
+  forgeui generate   <projectDir> [--clean-generated] [--prune-orphans]
   forgeui preview    <projectDir> [--prepare-only] [--backend sdl|wasm]
   forgeui pack       <projectDir> [-o outDir]
   forgeui export-sdk <projectDir> [--sdk <path>] [--force]
   forgeui bundle     <projectDir> -o file.forgeui [--with-generated]
   forgeui unbundle   <file.forgeui> -o projectDir
-  forgeui create     <projectDir> --name <name> [--platform qm10xd] [--template hello-dual-screen|blank]
+  forgeui create     <projectDir> --name <name> [--template hello-dual-screen|blank]
 
 Exit codes: 0 ok, 1 error, 2 usage / stub-not-ready
 `);
@@ -71,10 +71,15 @@ async function main(argv: string[]): Promise<number> {
       return 1;
     }
     const cleanGenerated = rest.includes("--clean-generated");
-    const result = await generate(root, { cleanGenerated });
+    const pruneOrphans = rest.includes("--prune-orphans");
+    const result = await generate(root, { cleanGenerated, pruneOrphans });
     printDiagnostics(result.diagnostics);
     if (result.ok) {
-      console.log(`Generated ${result.filesWritten.length} file(s), skipped ${result.filesSkipped.length}`);
+      const pruned = result.filesPruned?.length ?? 0;
+      console.log(
+        `Generated ${result.filesWritten.length} file(s), skipped ${result.filesSkipped.length}` +
+          (pruneOrphans ? `, pruned ${pruned}` : ""),
+      );
       return 0;
     }
     return 1;
@@ -115,7 +120,7 @@ async function main(argv: string[]): Promise<number> {
     const result = await packProject(path.resolve(projectDir), { outDir: outDir ? path.resolve(outDir) : undefined });
     printDiagnostics(result.diagnostics);
     if (result.ok) {
-      console.log(`Pack ${result.skeleton ? "skeleton" : "skipped"} → ${result.outDir}`);
+      console.log(`Pack OK → ${result.outDir}`);
       return 0;
     }
     return 1;
@@ -172,12 +177,10 @@ async function main(argv: string[]): Promise<number> {
       return 2;
     }
     const name = flagValue(rest, "--name") ?? path.basename(path.resolve(projectDir));
-    const platform = (flagValue(rest, "--platform") ?? "qm10xd") as "qm10xd";
     const fromTemplate = (flagValue(rest, "--template") ?? "blank") as "blank" | "hello-dual-screen";
     createProject({
       root: path.resolve(projectDir),
       name,
-      platform,
       fromTemplate,
     });
     openProject(path.resolve(projectDir));

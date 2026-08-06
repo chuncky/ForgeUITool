@@ -1,0 +1,39 @@
+appId: com.forgeui.kit
+productName: ForgeUI Kit
+copyright: Copyright © ForgeUI
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+directories:
+  output: ../../.release/pack
+  buildResources: build
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+extraResources:
+  - from: ../../.release/forgeui-root
+    to: forgeui-root
+asar: true
+electronDist: ../../node_modules/electron/dist
+electronVersion: 35.7.5
+npmRebuild: false
+nodeGypRebuild: false
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+  executableName: ForgeUI
+  # Avoid winCodeSign (needs symlink privilege / GitHub download on many Windows hosts).
+  signAndEditExecutable: false
+  verifyUpdateCodeSignature: false
+portable:
+  artifactName: ForgeUI-Kit-${version}-win-x64-portable.exe
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  artifactName: ForgeUI-Kit-${version}-win-x64-setup.${ext}

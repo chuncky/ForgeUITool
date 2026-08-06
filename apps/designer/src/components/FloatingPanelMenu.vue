@@ -10,11 +10,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 const props = defineProps<{
   open: boolean;
-  anchor: HTMLElement | null;
+  /** Anchor element (⋯ button). Ignored when `point` is set. */
+  anchor?: HTMLElement | null;
+  /** Client coordinates for context menu (FR-013c). */
+  point?: { x: number; y: number } | null;
 }>();
 
 const emit = defineEmits<{
@@ -22,9 +25,18 @@ const emit = defineEmits<{
 }>();
 
 const menuEl = ref<HTMLElement | null>(null);
+const adjusted = ref<{ top: number; left: number } | null>(null);
 
 const menuStyle = computed(() => {
-  const el = props.anchor;
+  if (props.point) {
+    const pos = adjusted.value ?? { top: props.point.y, left: props.point.x };
+    return {
+      top: `${pos.top}px`,
+      left: `${pos.left}px`,
+      transform: "none",
+    };
+  }
+  const el = props.anchor ?? null;
   if (!el) return { display: "none" };
   const r = el.getBoundingClientRect();
   return {
@@ -38,14 +50,40 @@ function close() {
   emit("update:open", false);
 }
 
+function clampToViewport() {
+  adjusted.value = null;
+  if (!props.open || !props.point || !menuEl.value) return;
+  const rect = menuEl.value.getBoundingClientRect();
+  const pad = 8;
+  let left = props.point.x;
+  let top = props.point.y;
+  if (left + rect.width > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - rect.width - pad);
+  if (top + rect.height > window.innerHeight - pad) top = Math.max(pad, window.innerHeight - rect.height - pad);
+  adjusted.value = { top, left };
+}
+
 watch(
   () => props.open,
-  (isOpen) => {
-    if (!isOpen) return;
+  async (isOpen) => {
+    if (!isOpen) {
+      adjusted.value = null;
+      return;
+    }
+    await nextTick();
+    clampToViewport();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", onKey, { once: true });
+  },
+);
+
+watch(
+  () => [props.point?.x, props.point?.y],
+  async () => {
+    if (!props.open || !props.point) return;
+    await nextTick();
+    clampToViewport();
   },
 );
 </script>
@@ -87,5 +125,11 @@ watch(
 
 .menu :deep(button.danger) {
   color: #ffb4b4;
+}
+
+.menu :deep(.menu-sep) {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 6px 12px 2px;
 }
 </style>

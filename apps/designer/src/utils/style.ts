@@ -1,5 +1,17 @@
 /** Style read helpers aligned with @forgeui/core style.ts (MVP flat + V1 parts). */
 
+import { STYLE_SUBGROUPS, visibleStyleFieldKeysForWidget, type StyleFieldDef } from "./style-fields.js";
+
+export {
+  STYLE_FIELD_CATALOG,
+  STYLE_SUBGROUPS,
+  styleFieldsForWidget,
+  styleSubgroupsForWidget,
+  visibleStyleFieldKeysForWidget,
+} from "./style-fields.js";
+
+export type { StyleFieldDef, StyleSubgroupDef } from "./style-fields.js";
+
 export function normalizeStyleParts(
   style: Record<string, unknown> | undefined,
 ): Record<string, Record<string, Record<string, unknown>>> {
@@ -28,22 +40,62 @@ export function readStyleProp(
   return normalizeStyleParts(style)[part]?.[state]?.[key];
 }
 
-export type StyleFieldDef = { key: string; label: string; type: "color" | "number" };
-
-export const STYLE_FIELD_CATALOG: StyleFieldDef[] = [
-  { key: "bg_color", label: "背景色", type: "color" },
-  { key: "text_color", label: "文字色", type: "color" },
-  { key: "radius", label: "圆角", type: "number" },
-  { key: "border_width", label: "边框宽度", type: "number" },
-  { key: "border_color", label: "边框颜色", type: "color" },
-];
-
-export function styleFieldsForWidget(type: string): StyleFieldDef[] {
-  if (type === "label") {
-    return STYLE_FIELD_CATALOG.filter((f) => f.key === "text_color");
+/**
+ * Merge style.parts[part].default with style.parts[part][previewState].
+ * Used by canvas chrome for multi-part widgets (tabview tabbar / tabbaritem).
+ */
+export function resolvePartCanvasStyleProps(
+  style: Record<string, unknown> | undefined,
+  part: string,
+  previewState: string | undefined,
+): Record<string, unknown> {
+  const parts = normalizeStyleParts(style);
+  const partId = part || "main";
+  const merged: Record<string, unknown> = { ...(parts[partId]?.default ?? {}) };
+  const state = String(previewState ?? "default").toLowerCase();
+  if (state && state !== "default") {
+    const overlay = parts[partId]?.[state];
+    if (overlay && typeof overlay === "object") Object.assign(merged, overlay);
   }
-  if (type === "image") {
-    return STYLE_FIELD_CATALOG.filter((f) => f.key === "bg_color" || f.key === "radius");
+  const disabled = Array.isArray(style?.disabledSubgroups)
+    ? (style!.disabledSubgroups as unknown[]).map(String)
+    : [];
+  if (!disabled.length) return merged;
+  const blocked = new Set<string>();
+  for (const id of disabled) {
+    const g = STYLE_SUBGROUPS.find((s) => s.id === id);
+    for (const f of g?.fields ?? []) blocked.add(f.key);
   }
-  return STYLE_FIELD_CATALOG.filter((f) => ["bg_color", "text_color", "radius"].includes(f.key));
+  return Object.fromEntries(Object.entries(merged).filter(([k]) => !blocked.has(k)));
+}
+
+/**
+ * V1-B: merge main.default with main[preview_state] for canvas chrome
+ * (bg/text/radius/opacity). Non-default preview_state overlays matching keys.
+ */
+export function resolveCanvasStyleProps(
+  style: Record<string, unknown> | undefined,
+  previewState: string | undefined,
+): Record<string, unknown> {
+  return resolvePartCanvasStyleProps(style, "main", previewState);
+}
+
+/** Persist eye-toggle meta without dropping part/state props. */
+export function withDisabledSubgroups(
+  style: Record<string, unknown> | undefined,
+  disabled: string[],
+): Record<string, unknown> {
+  const parts = normalizeStyleParts(style);
+  const useParts = !!(style?.parts && typeof style.parts === "object");
+  const base: Record<string, unknown> = useParts ? { parts } : { ...parts };
+  const ids = [...new Set(disabled.map(String).filter(Boolean))];
+  if (ids.length) base.disabledSubgroups = ids;
+  return base;
+}
+
+export function visibleStyleFields(type: string, fields: StyleFieldDef[]): StyleFieldDef[] {
+  const keys = visibleStyleFieldKeysForWidget(type);
+  if (!keys) return fields;
+  const allow = new Set(keys);
+  return fields.filter((f) => allow.has(f.key));
 }

@@ -2,9 +2,18 @@
 
 > **文档类型：** 软件概要设计（HLD）  
 > **产品暂名：** ForgeUI Kit（可替换）  
-> **目标平台：** qm10xd / qm10xv / qm10xh  
-> **版本：** V2.6  
-> **日期：** 2026-08-01  
+> **板端验收机型（非工具模型字段）：** qm10xd / qm10xv / qm10xh  
+> **版本：** V2.15  
+> **日期：** 2026-08-04  
+> **V2.15：** FR-016e 收口：画布资源须经 `assetDataUrl` 真加载；字号/字体/背景图实际可见（需求 V2.26）。  
+> **V2.14：** 启动页整行冷青蓝立体标识（需求 V2.23 / FR-011c）；PageTreePanel 页面列表。  
+> **V2.13：** FR-016d 控件属性 ↔ LVGL API（注册表 `lvglPropApis` + CodeGen 专用发射）；需求 V2.22。  
+> **V2.12：** 画布控件右键菜单与树 ⋯ 同源（需求 V2.21 / FR-013c）；补齐 Beken 画布基本操作漏项。  
+> **V2.11：** 工作区 **Delete/Backspace** 删除选中控件（需求 V2.20 / FR-012a）。  
+> **V2.10：** 画布交互：无滚动条；滚轮缩放；左键拖空白区平移（需求 V2.19 / FR-021b）。  
+> **V2.9：** **画布工作台**（需求 V2.18，全部 P0）：标尺+屏区高亮、设备框+舞台网格、缩放+「视图」、指针坐标、底栏辅助 Tab（日志/资源/配置）；事件仍在右栏（§5.6.3、FR-021a～d、FR-010g）。  
+> **V2.8：** 属性面板体验：样式 `bg_image` 与属性 `imageSrc` 同源资源库选择（对标 Beken；详设属性面板 §6.4 / FR-016c）。  
+> **V2.7：** **D-08** — UI 工具与生成物 **平台无关**；多板共用同一套标准 LVGL C / UI 包；`platform` 非生成语义字段。  
 > **V2.6：** **控件属性面板**概要设计（§5.6.6）：对标 Beken 38 控件 + 页面；PropPanel 分组、Part×State、`extraData`；用户手册 `docs/工具详细说明手册/控件属性面板使用说明.md`。
 > **V2.5：** **D-07** 单目录生成物：`forgeui_generated/` + 内嵌 `custom/`（对标 Beken）；SDK 整目录拷贝 + 单 cmake include。
 > **V2.4：** 左栏 **页面与组件树**（PageTreePanel）对齐 Beken `页面组件库.png`；组件 ⋯ 菜单对齐 `组件修改菜单.png`（FR-011a/b、FR-013a/b）。
@@ -14,12 +23,12 @@
 > **V2.0：** 壳层体验对齐 Beken：Electron **启动默认最大化**；工作区 **LogPanel** 固定于画布下方（非遮罩抽屉）；cmake 日志流式显示（FR-010b、FR-061c）。
 > **V1.9：** 预览服务非阻塞：PreviewHost cmake 必须异步 spawn；设计器 `previewStore` 编译期锁画布（FR-061a）。
 > **V1.8：** 工作区布局修订：**控件库面板**（WidgetLibraryPanel）与 **Outline** 解耦；顶栏「控件库」仅控控件库显隐（FR-010a）；控件库 UI 对标 Beken `docs/beken界面/组件面板/组件面板.png`。
-> **状态：** 草案（供架构评审 / AC-AR 门禁）；D-01～D-07 已锁定  
-> **MVP 首发平台：** qm10xd  
+> **状态：** 草案（供架构评审 / AC-AR 门禁）；D-01～D-08 已锁定  
+> **板端首发验收：** qm10xd（AC-005；生成物仍平台无关，见 D-08）  
 > **MVP LVGL 版本线：** 仅 1 条 — 9.10  
 > **A2 策略：** 默认启用（`deliveryMode=both`）  
 > **工程权威格式：** 多文件目录；单文件仅导出/分享  
-> **上游依据：** 《产品定义书》《设计需求文档》V2.7、《竞品对比分析报告》《立项书》；`ref/` 各竞品逆向与重构设计说明  
+> **上游依据：** 《产品定义书》《设计需求文档》V2.21、《竞品对比分析报告》《立项书》；`ref/` 各竞品逆向与重构设计说明  
 > **界面蓝本：** `docs/beken界面/界面说明.txt`（L1 体验对齐 Beken 壳与工作区；格式自有，禁止 L4）
 
 ---
@@ -227,14 +236,20 @@ Git 友好：明文 JSON；`forgeui_generated/` 可按团队策略选择是否�
 |------|------|-----|
 | `schemaVersion` | 工程格式版本；演进扩展点 | 必填 |
 | `name` | 工程名 | 必填 |
-| `platform` | `qm10xd` / `qm10xv` / `qm10xh` / … | 必填 |
-| `display` | 分辨率、色深等 | 必填 |
+| `display` | 分辨率、色深等（屏参，非芯片平台） | 必填 |
 | `lvglVersion` | MVP 固定为承诺版本线（见 D-04：`9.10`） | 必填 |
-| `previewBackend` | `sdl` \| `wasm`（未来） | 必填，默认 `sdl` |
+| `previewBackend` | `sdl` \| `wasm`（**PC 预览宿主**，与板端平台无关） | 必填，默认 `sdl` |
 | `deliveryMode` | `static_c` \| `dynamic_ui` \| `both` | 必填；**产品默认 `both`（D-05：A2 默认启用）**；可改 `static_c` 关闭 A2 |
 | `screens` | 页面引用列表 | 必填 |
 | `assets` / `fonts` | 资源索引 | 按需 |
 | `entrySymbol` | 默认如 `ui_init` | 必填 |
+| `platform`（可选/遗留） | **不得驱动 CodeGen**。若保留，仅作「上次导出到哪套 SDK」类交付提示；多板共用 **同一份** 标准 LVGL C / UI 包（D-08） | 可选；MVP 可省略 |
+
+**统一接口原则（D-08）：**
+
+- 设计器、工程模型、校验、语义表、CodeGen、Packer **不绑定** `qm10xd` / `qm10xv` / `qm10xh` 等具体 SoC。  
+- 输出契约是 **标准 LVGL C API**（A1）与 **自有 UI 包 + 薄 Loader**（A2）；板端差异落在 **SDK 侧 port / 工程脚手架**，不落在工具生成物分支上。  
+- 「能在多平台跑」≠「工具为每平台生成不同代码」——**输出代码一致**，由统一接口适配各板。
 
 方言须有意区别于他厂工程（DR-006），禁止宣称兼容 `.spj` / `.bkprj` / Pro XML 等。
 
@@ -287,7 +302,7 @@ WidgetRegistry
   └── type → PackEmitter（IR → 包内描述，可 stub）
 ```
 
-**单一数据源（NFR-006）：** 设计器 **控件库**、**属性面板**动态表单、CodeGen、Pack **同源读取** WidgetRegistry；V1 目标 38 种控件（对标 Beken），MVP 子集见 FR-014。
+**单一数据源（NFR-006）：** 设计器 **控件库**、**属性面板**动态表单、CodeGen、Pack **同源读取** WidgetRegistry；V1 目标 38 种控件（对标 Beken），MVP 子集见 FR-014。每种控件 `props` 与 LVGL 专用 API 对齐（FR-016d：`lvglPropApis`）；禁止无关控件共用同一套泛化属性表。
 
 ### 4.5 Semantic IR（AR-010）
 
@@ -473,15 +488,16 @@ AppShell
 
 **（2）六区工作台（画布中心）**
 
-> Beken 原文称「组件库」；本产品统一称 **「控件库」**（控件 = 可拖入画布的 LVGL widget）。参照 `docs/beken界面/组件面板/组件面板.png`。
+> Beken 原文称「组件库」；本产品统一称 **「控件库」**（控件 = 可拖入画布的 LVGL widget）。参照 `docs/beken界面/组件面板/组件面板.png`。  
+> **画布工作台（需求 V2.18，全部 P0）：** 标尺/屏区高亮、设备框+舞台网格、缩放+「视图」、指针坐标、底栏辅助 Tab；截图 `docs/竞品截图/`。**事件主编辑仍在右栏。**
 
 ```text
 ┌─ Toolbar（见上） ─────────────────────────────────────────────┐
 ├─ WidgetLibrary ─┬──────── Canvas ────────┬─ PageTreePanel ─────┤
-│  （可折叠）      │   DOM 近似画布          │  页面 [N]          │
-│  系统/自定义 Tab │   （非像素验收）         │  控件树 [N]        │
-│  分类 + 搜索     │                        │  （始终可见）       │
-│                 ├─ LogPanel（构建/运行日志，标题栏收起/展开，默认展开）─┤
+│  （可折叠）      │  标尺 + 设备框 + 网格   │  页面 [N]          │
+│  系统/自定义 Tab │  缩放% /「视图」/坐标  │  控件树 [N]        │
+│  分类 + 搜索     │  （DOM 近似，非像素验收）│  （始终可见）       │
+│                 ├─ BottomAux（日志 | 资源 | 配置；默认日志）────┤
 ├─────────────────┴────────────────────────┼─ Prop / Event ────┤
 │                                          │  属性 + 事件       │
 └──────────────────────────────────────────┴───────────────────┘
@@ -491,12 +507,16 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 | 规则 | 说明 |
 |------|------|
 | 控件库开关 | 顶栏「控件库」**仅**切换 **WidgetLibraryPanel**；**页面与控件树**、属性、事件 **不受其影响**（FR-010a） |
-| 页面/控件树 | **PageTreePanel**：页面列表 + **控件树**；⋯ **FloatingPanelMenu** 悬浮菜单（FR-011a/b、FR-013a/b） |
+| 页面/控件树 | **PageTreePanel**：页面列表 + **控件树**；⋯ **FloatingPanelMenu** 悬浮菜单（FR-011a/b、FR-013a/b）；启动页整行冷青蓝立体样式（FR-011c） |
 | 写回 | 所有编辑 → Project Model API（与 CLI/MCP 同源） |
-| 画布 | 近似渲染；**像素验收不靠 DOM**（FR-021、C-002） |
-| 事件 | 读写工程 `events`；逻辑图仅为后置视图（AR-050） |
+| 画布 | 近似渲染；**像素验收不靠 DOM**（FR-021、C-002）；但 chrome **必须真出背景图/字号**（FR-016e） |
+| **画布 chrome** | 标尺+屏区高亮、设备框、舞台网格（默认开）、缩放+「视图」、指针坐标（默认开）；**无滚动条**；**滚轮缩放**；**左键拖空白区平移**（FR-021a～d，**P0**）；资源经 `assetDataUrl` 加载 |
+| **底栏辅助** | Tab：日志 / 资源 / 配置（FR-010g，**P0**）；承接原 LogPanel；**禁止**底栏事件主编辑 |
+| 事件 | 读写工程 `events`；逻辑图仅为后置视图（AR-050）；**右栏 EventPanel 为唯一主编辑** |
 | 生成/预览 | 调 GenerateService / PreviewService，**禁止** UI 内第二套 CodeGen |
 | 选中同步 | 画布 ↔ **组件树** ↔ 属性（FR-013） |
+| **控件菜单** | 控件树 ⋯ 与 **画布右键** 同源（FR-013b/c）；`FloatingPanelMenu` |
+| **键盘** | `Ctrl+Z/Y/S`；选中控件时 **Delete/Backspace** 删除（FR-012a；输入框聚焦除外） |
 | 属性面板 | **PropPanel** 编辑 `frame`/`props`/`style`/`extraData`；**EventPanel** 编辑 `events`；与控件库解耦（FR-010a、FR-016） |
 
 #### 5.6.4 属性面板（PropPanel / StylePanel）
@@ -509,7 +529,7 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 | 分组顺序 | 屏幕信息/位置信息 → 属性（含 extraData 编辑器）→ 行为配置（V1）→ 样式 |
 | 数据写回 | 全部经 Project Model API（`updateNode` / `updateScreen`），与 CLI/MCP 同源（AR-020） |
 | screen 根 | 页面树选中时首组「屏幕信息」（宽/高，无锚点格） |
-| 样式 V1 | Part×State 下拉 + 背景/字体/边框/阴影等子组（FR-017） |
+| 样式 V1 | Part×State 下拉 + 背景/字体（含**字号**）/边框/阴影等（FR-017）；`bg_image` 资源库选择（FR-016c）且**画布真显示**（FR-016e） |
 | 控件库边界 | 控件库 **只添加**；属性面板 **只编辑** 已选节点 |
 
 详设：§9.7.4；38 控件字段总览见用户手册 §5.0。
@@ -518,14 +538,14 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 
 | 界面 | 触发 | 核心字段 / 行为 | 分期 |
 |------|------|-----------------|------|
-| 新建工程向导 | 主页 / 工作区无工程 | 名称、平台 qm10xd/v/h、分辨率、色深、模板 blank\|hello、`deliveryMode` 默认 both | MVP |
+| 新建工程向导 | 主页 / 工作区无工程 | 名称、**分辨率/色深（屏参）**、模板 blank\|hello、`deliveryMode` 默认 both；**不要求选芯片平台**（D-08） | MVP |
 | 工程设置 | 工作区顶栏 | 同 FR-002 + SDK 路径 + `deliveryMode` + 预览后端；**交付区**含「导出到 SDK」「打包 UI 包」次要按钮 | MVP |
-| 资源管理 | 顶栏 | 图片列表导入；字体 V1 | MVP/V1 |
+| 资源管理 | 顶栏 | 图片列表导入；字体 V1；供属性 `props.src` **与** 样式 `bg_image` 拾取 | MVP/V1 |
 | 颜色库 | 顶栏 | 命名色/主题 | V1 |
 | 历史版本 | 顶栏 | 快照列表、恢复 | V1 |
 | 代码编辑器 | 顶栏 | `custom/ui_events.*` 可写；同目录其余生成文件只读 | V1 |
 | AI 设计 | 顶栏 | 说明需外部宿主 + MCP 授权；本窗可只做引导 | V2 |
-| 生成/预览结果 | C 菜单 / 交付菜单 | **LogPanel**（画布下方固定区）；失败展示 cmake / pack / export 诊断 | MVP |
+| 生成/预览结果 | C 菜单 / 交付菜单 | **BottomAux「日志」**（画布下方；原 LogPanel）；失败展示 cmake / pack / export 诊断 | MVP |
 | **交付 ▾** | 顶栏（C 语言菜单之后） | **导出到 SDK**：PlatformPlugin **整目录**拷贝 `<codegenDir>/`；**打包 UI 包**：Packer → `packages/latest/`；`static_c` 时禁用打包 | MVP（xd）/ V1 填满 pack |
 
 #### 5.6.6 界面与需求/验收映射
@@ -533,6 +553,7 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 | 界面能力 | KF / FR | AC |
 |----------|---------|-----|
 | 主页新建双页工程 + 工作区拖拽 + 属性编辑 | KF-01/02，FR-010～012、FR-016 | AC-001 |
+| **画布工作台 chrome + 底栏辅助 Tab** | FR-021a～d、FR-010g | UI-09 / UI-10 |
 | 事件面板切页 + Call function | KF-03/04，FR-030～033 | AC-002 |
 | C 菜单 → 预览 | KF-06，FR-060～062 | AC-003 |
 | **交付菜单 → 导出 SDK** | KF-05/07，FR-008 | AC-004/005 |
@@ -549,25 +570,26 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 | `generate <project>` | A1 CodeGen | P0 |
 | `preview <project>` | PreviewHost 默认 sdl | P0 |
 | `pack <project>` | A2 Packer | P1（可先返回未实现） |
-| `export-sdk <project>` | 平台插件拷贝 | P0–P1 |
+| `export-sdk <project>` | 可选 SDK 拷贝适配（内容与板型无关） | P0–P1 |
 
 无头路径是 CI 与 MCP 的落点（AR-021）。
 
-### 5.8 PlatformPlugin（KF-07）
+### 5.8 SDK 交付适配（原 PlatformPlugin；KF-07 / D-08）
+
+> **纠正：** 工具 **不** 按平台分叉 UI 模型或 CodeGen。所谓「平台插件」仅是 **可选的 SDK 拷贝 / 上板文档适配器**，把 **同一份** `forgeui_generated/` 拷进客户工程；切换 xd/xv/xh **不改变** 生成的 C 与 UI 包内容。
 
 ```text
-PlatformPlugin {
-  id: qm10xd | qm10xv | qm10xh | ...
+SdkDeliveryAdapter {          # 可选；非 CodeGen 输入
+  id: qm10xd | qm10xv | qm10xh | ...   # 仅标识拷贝目标/文档
   defaultSdkPathHints()
-  projectTemplate()
-  copyGenerated(src, sdkPath) → Result
-  boardHelloDoc()          # ≤10 步（NFR-007）
+  copyGenerated(src, sdkPath) → Result  # 整目录拷贝，内容与 id 无关
+  boardHelloDoc()                       # ≤10 步上板说明（验收用）
 }
 ```
 
-- **核心生成器芯片无关**；平台差异收敛在插件与模板。  
-- **MVP：** 以 **qm10xd** 为首发验收平台（D-03 / AC-005）；Hello 模板与 ≤10 步上板文档先覆盖 xd。  
-- **V1：** 补齐 qm10xv / qm10xh 平台模板（FR-007）。
+- **核心生成器与工程 Schema 芯片无关**；统一输出标准 LVGL C +（可选）A2 包。  
+- **板端验收：** 可用 qm10xd 等作 AC-005 实机门禁（D-03），证明「同一生成物可上板」，**不是**「为 xd 单独生成一套代码」。  
+- **V1：** 若多板 SDK 目录布局不同，只增加 **拷贝路径/文档** 适配，禁止为每板维护一份 CodeGen 方言。
 
 ### 5.9 AssetPipeline
 
@@ -792,14 +814,15 @@ forgeui/
 | D-01 | 设计器壳 | **Electron + Vue3** | 2026-07-29 |
 | D-02 | 用户代码隔离默认策略 | **`<codegenDir>/custom/`：再生成不覆盖**；weak 不作默认（FR-056 仅 V1 可选） | 2026-07-29 |
 | D-07 | 生成物目录形态 | **单根目录** `forgeui_generated/`（内嵌 `custom/`）；废弃根下并列 `generated/`+`user/` | 2026-07-30 |
-| D-03 | MVP 首发平台排序 | **先 qm10xd**（AC-005 首发验收平台）；qm10xv / qm10xh 模板 V1 补齐 | 2026-07-29 |
-| D-04 | 默认 LVGL 版本线 | **仅 1 条**：目标 **LVGL 9.10**（工程 `lvglVersion` 默认/`9.10`；与 qm10xd SDK 捆绑版本对齐验收） | 2026-07-29 |
+| D-03 | 板端首发验收机型 | **先用 qm10xd 做 AC-005**（证明同一生成物可上板）；**不**表示 CodeGen 按 xd 分叉。xv/xh 仅影响可选拷贝路径/文档（D-08） | 2026-07-29（2026-08-03 按 D-08 澄清） |
+| D-04 | 默认 LVGL 版本线 | **仅 1 条**：目标 **LVGL 9.10**（工程 `lvglVersion` 默认/`9.10`；与板端 SDK 捆绑版本对齐验收即可） | 2026-07-29 |
 | D-05 | A2 启用策略 | **默认启用**（非可选插件）；新建工程 `deliveryMode=both`；可改 `static_c` 关闭 | 2026-07-29 |
 | D-06 | 工程存储形态 | **多文件目录为权威**；单文件仅作导出/分享/备份选项（导入后展开） | 2026-07-29 |
+| D-08 | 工具与生成物 vs 板端平台 | **UI 工具不绑定具体平台**；A1/A2 输出对多板 **同一份**（标准 LVGL C / UI 包）。`platform` 非生成语义；板端差异仅在 SDK port / 可选拷贝适配器。AC-005 用某板验收 ≠ 为该板分叉 CodeGen | 2026-08-03 |
 
 ### 15.2 仍待决（Open）
 
-无（MVP 架构待决项 D-01～D-07 均已锁定）。扩展名、单文件是否 zip、导出是否含 `forgeui_generated/` 等交详细设计。
+无（MVP 架构待决项 D-01～D-08 均已锁定）。扩展名、单文件是否 zip、导出是否含 `forgeui_generated/` 等交详细设计。`project.platform` 是否从 Schema 必填降为可选/移除，实现侧随 Schema 迁移跟进。
 
 ---
 
@@ -851,7 +874,7 @@ Schema + SemanticIR + Validate
   → CodeGen(A1) + custom/ 规则 + ui_nav(V1)
   → PreviewHost(SdlBackend) + CLI 门禁
   → Designer（Beken 壳 L1 + 五区）
-  → PlatformPlugin(qm10xd) + 上板文档
+  → SdkDeliveryAdapter（可选拷贝同一份 forgeui_generated）+ 上板文档
   → Packer/Loader(V1) + Part/State + 历史快照
   → Wasm / MCP / Figma / 逻辑图（按 AR 填满）
 ```
@@ -868,6 +891,8 @@ Schema + SemanticIR + Validate
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| V2.15 | 2026-08-04 | FR-016e 收口：画布 `assetDataUrl` 真加载背景图/字体；字号字段；需求 V2.26 |
+| V2.8 | 2026-08-03 | §5.6.4/5：样式 `bg_image` 资源库选择与属性 imageSrc 对齐（FR-016c） |
 | V1.0 | 2026-07-29 | 首版：依据产品定义、需求 V2.3、竞品报告编写；覆盖 AR 与 AC-AR |
 | V1.1 | 2026-07-29 | 锁定 D-01 Electron+Vue3、D-02 `user/` 默认策略 |
 | V1.2 | 2026-07-29 | 锁定 D-03：MVP 首发平台 qm10xd |
@@ -877,6 +902,7 @@ Schema + SemanticIR + Validate
 | V1.6 | 2026-07-29 | 补充 §5.6 界面概要设计：对标 `docs/beken界面` 主壳五键与工作区工具条；映射 KF/FR/AC |
 | V1.7 | 2026-07-30 | 依据竞品报告与 `ref/`：§4.3 样式 V1 模型、§5.3 ui_nav、§5.5 Wasm 演进、§17 竞品实现路径对照 |
 | V2.6 | 2026-08-01 | **控件属性面板**概要：§5.6.4 PropPanel 分组、Part×State、extraData；WidgetRegistry 单一数据源扩展 |
+| V2.7 | 2026-08-03 | **D-08**：工具/生成物平台无关；`platform` 降为可选交付提示；PlatformPlugin → SdkDeliveryAdapter |
 
 ---
 

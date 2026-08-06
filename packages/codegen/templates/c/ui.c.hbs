@@ -4,6 +4,16 @@
 #include "screens/screen_{{id}}.h"
 {{/each}}
 #include "custom/ui_events.h"
+#include "custom/custom_func.h"
+{{#if hasVars}}
+#include "ui_vars.h"
+{{/if}}
+{{#if hasI18n}}
+#include "ui_i18n.h"
+{{/if}}
+{{#if hasAnim}}
+#include "ui_anim.h"
+{{/if}}
 
 {{#each changeTargets}}
 void {{../ir.cPrefix}}event_change_screen_{{this}}(lv_event_t *e)
@@ -21,10 +31,57 @@ void {{../ir.cPrefix}}event_call_{{this}}(lv_event_t *e)
 }
 {{/each}}
 
+{{#each setVars}}
+void {{../ir.cPrefix}}event_set_var_{{suffix}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    forgeui_var_set_int("{{variableId}}", {{intValue}});
+}
+{{/each}}
+
+{{#each toggleVars}}
+void {{../ir.cPrefix}}event_toggle_var_{{this}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    forgeui_var_set_int("{{this}}", !forgeui_var_get_int("{{this}}"));
+}
+{{/each}}
+
+{{#each switchLangs}}
+void {{../ir.cPrefix}}event_switch_lang_{{suffix}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    ui_i18n_set_language({{enumName}});
+}
+{{/each}}
+
+{{#each playAnims}}
+void {{../ir.cPrefix}}event_play_anim_{{this}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+    ui_anim_play("{{this}}");
+}
+{{/each}}
+
+{{#each setProps}}
+{{#if externDecl}}
+{{externDecl}}
+{{/if}}
+void {{../ir.cPrefix}}event_set_prop_{{suffix}}(lv_event_t *e)
+{
+    LV_UNUSED(e);
+{{{body}}}
+}
+{{/each}}
+
 void {{ir.entrySymbol}}(void)
 {
+{{#if hasVars}}
+    forgeui_vars_init();
+{{/if}}
 {{#each screens}}
     {{../ir.screenPrefix}}{{id}}_create();
 {{/each}}
     lv_screen_load({{ir.screenPrefix}}{{defaultScreen}}_get());
+    forgeui_custom_init();
 }

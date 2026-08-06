@@ -4,8 +4,19 @@
 > **产品暂名：** ForgeUI Kit（可替换）  
 > **专项：** UI 的 PC 拖拽式开发工具 — 拖拽即可生成可编译 UI 程序  
 > **依据：** `docs/嵌入式UI工具_竞品对比分析报告.md`；七家工具公开能力与本仓库 `ref/` 分析/重构结论；专项目标  
-> **版本：** V2.15  
-> **日期：** 2026-08-01  
+> **版本：** V2.26  
+> **日期：** 2026-08-04  
+> **V2.26：** **FR-016e 收口（实际可用）**：画布须**真正显示**背景图像素与文本字号/字体/对齐（禁止仅写 CSS 字符串冒充）；新增工程资源可加载 URL（`project:assetDataUrl`）；契约测试须覆盖真实文件解析。  
+> **V2.25：** 新增 **FR-016e**：属性面板修改须在画布 chrome 即时可见（按钮为契约样例）；`buildWidgetCanvasChrome` + `tests/designer_button_canvas_chrome.test.ts`。  
+> **V2.24：** **FR-011d** 多页存档：切页/存档前冲刷属性面板未提交输入，避免切换后丢修改。  
+> **V2.23：** **FR-011c** 启动页视觉：整行**冷青蓝**分色（沿用 `--accent` 色系）+ 立体效果；禁止仅靠火箭透明度或页名外框区分。  
+> **V2.22：** 新增 **FR-016d**：各控件 `props` 须与 LVGL 专用 API 对齐（禁止无关控件共用同一套通用属性）；CodeGen 创建期发射对应 `lv_*`；回归 `tests/widget_props_lvgl_contract.test.ts`。  
+> **V2.21：** 补 **FR-013c 画布控件右键菜单**（对标 Beken `画布区域.txt`：锁定/隐藏/复制/层级/对齐/删除）；与树 ⋯ 菜单同源。说明：此前 FR-013b 仅落在控件树，未把画布右键写入需求，属体验对标漏项。  
+> **V2.20：** 选中控件支持 **Delete / Backspace** 删除（FR-012a，P0）；输入框聚焦时不触发。  
+> **V2.19：** 画布交互收口（FR-021b）：舞台 **无滚动条**；**鼠标滚轮缩放**；**按住左键拖移**平移视图（非控件拖拽）；详设 §9.7.2。  
+> **V2.18：** 画布工作台能力全部定为 **P0 基本要求**：标尺+屏区高亮、设备框+舞台网格、缩放+视图菜单、指针坐标、底栏辅助多 Tab（日志/资源/配置入口）；**事件主编辑仍在右栏**（§3.7.5、FR-021a～d、FR-010g）。  
+> **V2.17：** 对照竞品截图 `docs/竞品截图/bk的设计器.png`、`docs/竞品截图/uibuilder的设计器.png` 增补 **画布工作台** 需求（§3.7.2/§3.7.5、FR-021a～d、FR-010g）。  
+> **V2.16：** 新增 **FR-016c**：样式字段 `imageSrc`（含 `bg_image`）须与属性组相同，支持从资源管理选择（对标 Beken 背景图选择；详设属性面板 §6.4）。  
 > **V2.15：** **控件属性面板**需求细化（FR-016～016b）：对标 Beken 38 控件 + 页面；分组（位置/属性/行为/样式）、Part×State、`extraData`；用户手册 `docs/工具详细说明手册/控件属性面板使用说明.md`；详设 §3.5.2、§9.7.4。
 > **V2.14：** **D-07 / FR-051b** 生成物改为 **单目录** `forgeui_generated/`（内嵌 `custom/`），对标 Beken；SDK 整目录拷贝 + 单 cmake include。
 > **V2.1：** 产品定位改为面向 **qm10xd / qm10xv / qm10xh** 等平台（非厂商中立通用工具）。  
@@ -256,9 +267,9 @@
 
 | 竞品 | 借鉴（做什么） | 分期 | 映射 FR/AR | 禁止（报告 §8.4） |
 |------|----------------|------|------------|-------------------|
-| **Beken** | 明文 JSON + Handlebars CodeGen + SDL 仿真；五区工作台；**控件库面板**；**单目录** `beken_generated/` + 内嵌 `custom/`；存档历史；MCP 改工程 JSON | MVP / P1 / P2 | FR-004、010a、014a、050～062、072；AR-020 | 读 `.bkprj`（L4）；搬 `app.asar` |
+| **Beken** | 明文 JSON + Handlebars CodeGen + SDL 仿真；五区工作台；**控件库面板**；**单目录** `beken_generated/` + 内嵌 `custom/`；存档历史；MCP 改工程 JSON；**画布：标尺 + 屏区尺寸高亮 + 缩放% +「视图」**（见 `docs/竞品截图/bk的设计器.png`） | MVP / P1 / P2 | FR-004、010a、014a、021a～c、050～062、072；AR-020 | 读 `.bkprj`（L4）；搬 `app.asar` |
 | **SquareLine** | 事件边界（Call function → `user/`）；`ui_helpers` 切屏辅助；Play 快反馈体验目标；跨 OS 设计器路线 | MVP / P1 / P2 | FR-030～033、051；FR-063～065 | 兼容 `.spj`；复用闭源 Play |
-| **UIBuilder** | 一键进 SDK、≤10 步上板文档；Part/State 样式；`generated`+`custom` 双区 | MVP / P1 | KF-07，FR-008、017；NFR-007 | 兼容 `.aicpro`；复用 `AicUI.dll` |
+| **UIBuilder** | 一键进 SDK、≤10 步上板文档；Part/State 样式；`generated`+`custom` 双区；**画布：标尺 + 指针坐标；底栏「日志/资源/配置」辅助 Tab（P0）**（见 `docs/竞品截图/uibuilder的设计器.png`） | MVP / P1 | KF-07，FR-008、017、021a/d、010g；NFR-007 | 兼容 `.aicpro`；复用 `AicUI.dll`；**不得**用底栏「事件」替代右侧属性\|事件 Inspector |
 | **EEZ Studio** | 工程模型 API + 无头 Build；build manifest；Wasm 真预览架构对照；XLIFF/i18n 思路 | P1～P2 | AR-020～021；FR-043、064；`.forge/build-manifest` | GPL 换皮闭源；搬 `lvgl_runtime_v*` |
 | **LVGL Pro** | Wasm 真预览体验上限；CLI/CI 无头；Figma→自有 JSON 适配器形态 | P2～P3 | FR-058、073～075；AR-030～031 | 官方 Pro XML 兼容；`.jsc`/`lved-runtime` |
 | **Persim / FlyThings** | 仅作「范式 B / 厚部署」反例；A2 不得滑向 `.prc`/应用商店/so 闭环 | — | C-005、OUT-004 | 混称 A2=范式 B |
@@ -271,6 +282,7 @@
 | P0 | 明文 Schema + 校验 | Beken / EEZ | 是 |
 | P0 | C CodeGen + `custom/` 不覆盖 + 单目录布局 | Beken / SquareLine / UIBuilder | 是 |
 | P0 | PC 真 LVGL 可点选（**SDL 优先**） | Beken / UIBuilder | 是 |
+| P0 | **画布工作台**：标尺/屏区高亮、设备框+网格、缩放+视图、指针坐标、底栏辅助 Tab（事件仍在右栏） | Beken / UIBuilder 截图 | **是**（FR-021a～d、FR-010g） |
 | P1 | 事件动作、Part/State、字体裁剪、SDK 模板、CLI 无头 | SquareLine / Beken / UIBuilder | V1 |
 | P2 | Wasm 真预览、动画、i18n、MCP、逻辑图 | EEZ / Pro / Beken | V2+ |
 | P3 | Figma / Online / UI 测试 CLI | LVGL Pro | V3 |
@@ -287,9 +299,28 @@
 | 属性面板与控件库职责混淆 | 控件库只添加；属性面板只编辑已选节点；`extraData` 不得用 `children` 模拟列表项 | FR-010a、FR-016b |
 | 顶栏纯文字按钮 | 工作区顶栏须 **图标+名称**；undo/redo 须 **icon-only** 弯箭头，不得用中文替代 | FR-010f |
 | 大纲替代页面+控件树 | 左栏须 **页面 [N] + 控件树 [N]** 两段；⋯ 菜单 **悬浮层** 不得内嵌于滚动列表 | FR-011a、FR-013a |
+| 底栏事件区取代右侧 Inspector | UIBuilder 底栏「事件」仅为参考；本产品 **属性\|事件** 仍在右栏（Beken） | FR-010、FR-010g |
 | 把 EEZ 全家桶当 MVP | Flow+仪器拖垮专项 | OUT-003；Flow 不做 |
 | GPL 换皮 / 搬 Wasm | 合规与维护双风险 | OUT-006；C-003 |
 | 追求 L4/L5 | 他厂工程/闭源宿主兼容 | OUT-001/002 |
+
+#### 3.7.5 画布工作台对标（截图依据，2026-08-03；**V2.18 全部 P0 必达**）
+
+> **截图存档：** `docs/竞品截图/bk的设计器.png`、`docs/竞品截图/uibuilder的设计器.png`。  
+> **壳层原则：** 整体工作台仍以 **Beken** 为 L1（左页面/控件树、中画布、右属性\|事件）；UIBuilder 贡献 **画布 chrome + 底栏辅助 Tab**。下列能力均为 **MVP/P0 基本要求**，不得标为远期可选。  
+> **边界：** 底栏可有「日志 / 资源 / 配置」；**事件主编辑不得迁出右栏**。
+
+| 能力 | Beken 截图可见 | UIBuilder 截图可见 | ForgeUI 采纳 |
+|------|----------------|--------------------|--------------|
+| 上/左 **标尺** | ✓；屏宽/屏高段可高亮（如 480 / 272） | ✓ | **P0 须做**（FR-021a） |
+| 设备框 = `display` 分辨率 | ✓ 白底屏区居中于深色舞台 | ✓ 内容画在屏区内 | **P0 须做**（FR-021c） |
+| 舞台网格/深色衬底 | ✓ | ✓（暗色） | **P0 须做**（FR-021c；网格默认开） |
+| **缩放**（%/放大缩小） | ✓ 约 90% + 放大镜 | ✓ 缩放图标 | **P0 须做**（FR-021b；滚轮缩放；无舞台滚动条） |
+| **视图**菜单 | ✓「视图 ▾」 | —（工具条图标为主） | **P0 须做**（FR-021b；标尺/网格/坐标显隐） |
+| 舞台平移 | 拖动画布视图 | — | **P0 须做**（FR-021b：左键拖移空白/舞台区；控件上仍为选中/拖控件） |
+| 指针坐标 | — | ✓ 如 `[x, y]` | **P0 须做**（FR-021d；默认开启） |
+| 底栏多 Tab | 日志在画布下 | **日志 / 资源 / 配置**（+ 其「事件」仅作参考） | **P0 须做**（FR-010g）：至少日志、资源、配置入口；**事件不迁出右栏** |
+| 右侧属性面板 | （本截图未含全工作区） | （本截图未含） | 仍按 FR-016～016c / Beken 属性面板 |
 
 ---
 
@@ -356,24 +387,39 @@
 | FR-010d | **交付菜单与 C 语言菜单分离**：C 语言 ▾ **仅** A1 静态 C + PC cmake/SDL 仿真；**交付 ▾** 承载 **导出到 SDK**（A1）与 **打包 UI 包**（A2）；A2 与 C 菜单无从属关系；`static_c` 时禁用打包 | P0 | C 菜单无 SDK/UI 包项；交付菜单可见两项；项目设置含次要按钮 |
 | FR-010e | **项目名称按钮**：展示 `project.name`（脏则 `*`）；**单击**在 OS 文件管理器中打开当前工程根目录 | P0 | Tooltip 含完整路径；对标 Beken 打开项目文件夹 |
 | FR-010f | **顶栏按钮视觉对齐 Beken**（参照 `工作区/工作区-全.png`）：除撤回/重做外均为 **图标+名称** 纵向磁贴（`ToolbarButton`）；**撤回/重做** 为 **通用弯箭头 icon-only**（禁止中文「撤回」「重做」作主视觉）；Tooltip 含快捷键；图标为内联 SVG sprite，禁止复制 Beken 闭源资源 | P0 | 顶栏项均可见图标；undo/redo 无文案仅 ↶↷；映射见 `docs/beken界面/工作区顶栏-本产品映射.md` |
+| FR-010g | **底栏辅助区（对标 UIBuilder，P0 基本要求）**：中央列底部提供可切换辅助 Tab，至少包含：**日志**（承接现有 LogPanel / FR-010b）、**资源**（浏览/导入，可与顶栏资源管理同源）、**配置**（链到工程设置）。**禁止**将「事件」主编辑迁到底栏而掏空右侧 Inspector；事件仍仅在右栏「事件」Tab。属性/样式「库」拾取（FR-040、FR-016c）可与底栏资源并存 | P0 | 底栏可见 ≥3 Tab；切到资源可导入或选择图；右栏事件编辑完整可用 |
 | FR-011 | 多页面创建 / 切换 / 删除 / **重命名**（**双击页名**内联编辑或 ⋯ 菜单，对标 Beken） | P0 | ≥2 页；双击改名后 Enter 保存 |
 | FR-011a | **页面列表面板**（对标 Beken「页面 [N]」）：纵向列表 + 计数；`+` 新建；单击切换；**双击页名重命名**；**火箭** 设 `defaultScreen`；**⋯** 菜单；UI 文案不用单一「大纲 Tab」 | P0 | 参照 `页面组件库.png`；双击与 ⋯ 均可改名 |
 | FR-011b | **页面扩展操作**：**复制页面**（深拷贝 screen JSON）；**调整页面顺序**（`project.screens` 上移/下移/置顶/置底，即页面叠层/列表顺序）；删除保留 ≥1 页 | P0 | 复制后新页可编辑；顺序变更可保存 |
+| FR-011c | **启动页视觉标识**：当前 `defaultScreen` 对应页行须 **整行**采用冷青蓝分色背景（`#5eb0f7 → #2a6fad`，与界面 accent 同族）+ 立体（凸起/层次阴影）样式，与非启动页一眼可辨；火箭按钮仍为设启动页入口。**禁止**仅靠火箭透明度/颜色区分，**禁止**给页名文字加外框/描边作为主识别 | P0 | 多页工程中启动页整行冷青蓝立体；切启动页后样式随 `defaultScreen` 迁移 |
+| FR-011d | **多页编辑落盘**：切页、存档、生成/编译前须冲刷属性/事件面板焦点（触发 `@change`）并等待 in-flight `updateNode`/`setEvents`；mutation 须固定 `screenId`/`nodeId`，禁止因切页竞态写错页或丢未提交输入 | P0 | 改 A 页属性后不点空白直接点 B 页再存档，A/B 磁盘 JSON 均含修改 |
 | FR-012 | 拖拽添加；移动缩放；多选对齐 | P0 | 写回 JSON |
+| FR-012a | **键盘删除选中控件（P0）**：工作区选中非 screen 节点时，按 **Delete** 或 **Backspace** 调用与属性面板「删除控件」相同的 `removeNode` 路径；入撤销栈（FR-010c）。焦点在 `input` / `textarea` / `select` / `contenteditable` 时**不**拦截。不可删 screen 根 | P0 | 选中按钮按 Delete 后画布与树消失；Ctrl+Z 可恢复；在属性文本框按 Delete 仅删字符 |
 | FR-013 | 组件树与画布选中同步；锁定/隐藏写回 JSON | P0 | 选中一致 |
 | FR-013a | **控件树面板**（对标 Beken「组件树 [N]」；本产品文案 **「控件树 [N]」**）：仅当前页；递归层级；行内 **眼睛** 切换 `hidden`；锁定态图标；类型图标 + 名称；**⋯ 菜单须 `FloatingPanelMenu` 悬浮层**，不得被面板 `overflow` 裁剪 | P0 | 隐藏后画布不绘制；菜单浮于面板外（见问题图 `页面面板的弹出菜单.png`） |
-| FR-013b | **组件 ⋯ 操作菜单**（对标 `组件修改菜单.png`）：锁定、复制、上移/下移、置顶/置底、删除；**对齐** 6 向（V1，需多选或相对 screen）；**创建自定义控件**（V1，FR-019） | P0（除对齐/自定义外）；P1（对齐+自定义） | 菜单项可用且入撤销栈 |
+| FR-013b | **组件 ⋯ 操作菜单**（对标 `组件修改菜单.png`）：锁定、隐藏、复制、上移/下移、置顶/置底、删除；**对齐** 6 向；**创建自定义控件**（FR-019） | P0 | 菜单项可用且入撤销栈 |
+| FR-013c | **画布控件右键菜单（P0，对标 Beken 画布）**：画布上对控件 **右键** 弹出与 FR-013b **同源**操作菜单（`FloatingPanelMenu` 按鼠标点位定位）；右键时先选中该控件；至少锁定/隐藏/复制/层级/对齐/删除；不可对 screen 根弹出。依据：`docs/beken界面/画布区域.txt` §1.3 | P0 | 右键弹出菜单；「删除」同 Delete；与树 ⋯ 行为一致 |
 | FR-014 | MVP 控件：Screen、Container、Label、Button、Image、Slider、Switch、Checkbox、Bar、Arc、Dropdown、Textarea（可微调） | P0 | 均可生成且 SDL 可见 |
 | FR-014a | **控件库面板**（对标 Beken 组件面板）：**系统控件** Tab（按分类折叠展示、显示数量）、**自定义控件** Tab（FR-019）、**搜索框**（按中文名/type 过滤）；点击或拖入画布添加控件 | P0（系统 Tab + 搜索）；P1（自定义 Tab 有内容） | 见 AC-001；参照 `docs/beken界面/组件面板/组件面板.png` |
 | FR-015 | V1 扩展常用 HMI 控件至 **38 种**（对标 Beken component-specs：Tabview、Keyboard、Chart、List、Roller、Table、Menu…）；属性规格见用户手册 §5.0 | P1 | 注册表扩展；PropPanel 动态表单 |
 | FR-016 | **属性检查器**（对标 Beken 属性面板）：右栏编辑选中节点；分组 **位置信息**（X/Y/W/H）、**属性**（WidgetRegistry 动态 `props`）、**样式**（MVP：`main.default` 常用键）；screen 根为 **屏幕信息**（宽/高）；改属性经 `updateNode` 写回 JSON | P0 | 选按钮改 `props.text` 画布即时更新；存档后 JSON 一致 |
 | FR-016a | **页面属性**：页面树选中 screen 根时首组为「屏幕信息」（无锚点格）；可编辑分辨率；页面不可删除 | P0 | 见用户手册 §3.1、§4.1.1 |
 | FR-016b | **全量控件属性规格**（V1）：38 种控件 `props` + `extraData` 内嵌编辑器 + Part×State 样式子组 + 行为 flags；规格以 Beken `component-specs/` 为对标输入，ForgeUI 自有 JSON 字段名 | P1 | 用户手册 §5.0 总览各行 V1 字段可编辑；详设 §3.5.2 |
+| FR-016c | **样式 imageSrc 资源选择**（V1）：样式子组中类型为 `imageSrc` 的字段（至少 `bg_image`）须提供与属性组 `props.src` **相同**的「从资源管理选择」入口（下拉和/或「库」按钮 → `AssetsDialog`）；禁止仅手填路径 | P1 | 点选后 `style.parts.*.*.bg_image` 写入 `assets/images/…`；对标 Beken 背景图文件夹选择；属性面板详设 §6.4 |
+| FR-016d | **控件属性 ↔ LVGL API 契约**：每种控件 `PropSpec[]` 仅含该类型 LVGL 专用字段（如 label 的 `long_mode`、spinbox 的 `digit_count`、scale 的 `tick_cnt`）；禁止把「text/value」等泛化字段套到无关控件。注册表须提供 `lvglPropApis` 映射；CodeGen `emitWidgetCreate` 对创建期 props 发射对应 `lv_*`（与 LVGL 9 头文件签名一致，如 `lv_spinner_set_anim_params`、`lv_tabview_set_tab_bar_position`） | P0 | `tests/widget_props_lvgl_contract.test.ts` 全绿；抽样控件添加后生成 C 可对 LVGL 9 编译 |
+| FR-016e | **属性 → 画布 chrome 即时可见（实际可用）**：以 **button** 为契约样例，对照 Beken 按钮属性。属性/样式/行为变更须在画布上产生**人眼可辨、资源可加载**的效果，禁止「只写 `url(assets/…)` / `fontFamily:@id` 字符串、图片字体实际空白」冒充完成。硬性项见下表验收 | P0 | 见验收列；测试 `designer_button_canvas_chrome` + `designer_canvas_asset_url` 全绿；手工：选背景图后画布出图，改字号后文字变大 |
+| FR-016e-a | **背景图可加载**：`style.*.bg_image`（对标 Beken `bg_img_src`）经工程根解析为 `data:`（或等价安全协议）后设为画布 `background-image`；相对路径不得依赖 Vite origin | P0 | 临时工程写入真实 PNG + 设 `bg_image` → chrome `backgroundImage` 为 `data:image/...;base64,` 且非空；Electron 画布可见图 |
+| FR-016e-b | **文本样式可辨**：字体子组含 **字号**（`text_font_size`，对标 Beken「字号」/`font_size`）；`text_font` 引用已导入字体时注册 `@font-face` 并用于画布；**字号须进入 CodeGen**（`forgeui_font_<id>_<size>` 或内置 montserrat）；对齐时按钮文案容器**满宽**（画布 + 子 label `LV_PCT(100)`）；`letter_space`/`text_decor`/`text_color` 可见 | P0 | 改字号 → 画布+模拟一致；改对齐 Left/Right → 文案靠边；`codegen_style_text_font` / `codegen_long_mode_bk` 全绿 |
+| FR-016e-c | **契约测试不得偷懒**：禁止仅断言 CSS 字符串含路径文件名即判背景图通过；须断言可加载 data URL 或等价。image 控件 `props.src` 同步用同一解析管线（可显示缩略，不得永久 `IMG` 占位） | P0 | 相关测试失败当路径未解析；image 画布非纯文本占位 |
 | FR-017 | 样式 Part/State 或等价模型（对齐 Beken `style.parts[].states[]` / UIBuilder Part·State；**非** SquareLine 数字 type） | P1 | 生成 `lv_obj_set_style_*` 或 LVGL 9 样式 API；StylePanel Part/State 下拉；见详细设计 §3.5.1、§9.7.4.5 |
 | FR-018 | 命名样式 / 主题色复用（对标 SquareLine Themes / Beken 颜色库） | P1 | 工程或 `themes/` 可引用 |
 | FR-019 | **自定义控件**（组合另存、多处实例化）；在控件库 **「自定义控件」** Tab 展示与管理 | P1–P2 | MVP Tab 可占位空态 |
 | FR-020 | 设计器 UI 中英切换 | P2 | — |
 | FR-021 | 画布可用近似渲染；**像素验收以真 LVGL 预览为准** | P0 | 见 FR-060 |
+| FR-021a | **画布标尺**（对标 Beken / UIBuilder，**P0**）：舞台上边、左边显示像素标尺；按 `project.display.width/height` **高亮屏区跨度**；缩放变化时刻度同步 | P0 | 改分辨率后标尺高亮段长度变化；对照 `docs/竞品截图/bk的设计器.png` |
+| FR-021b | **画布缩放与视图**（对标 Beken，**P0**）：缩小/放大、当前缩放百分比（如 50%～200%）、「适应窗口」；**「视图」菜单**可切换标尺/网格/指针坐标显隐。**交互：** 舞台区 **禁止出现滚动条**（溢出靠缩放+平移）；**鼠标滚轮**缩放；在舞台空白区（非控件）**按住左键拖移**平移画布；控件上的左键仍为选中/移动控件 | P0 | 滚轮改缩放%；左键拖空白区仅平移不改控件 frame；舞台无横向/纵向滚动条；对照同目录 Beken 截图 |
+| FR-021c | **舞台与设备框**（**P0**）：设备框尺寸 = 当前工程分辨率；框外为深色舞台 + **浅网格（默认开启）**；框内为页面近似渲染区 | P0 | 打开 Hello 工程可见居中屏区与网格；无「整片白、看不出屏边界」 |
+| FR-021d | **指针坐标**（对标 UIBuilder，**P0**）：鼠标在舞台/屏区内移动时显示相对屏区（或舞台）坐标（如 `[x, y]`）；可通过「视图」开关，**默认开启** | P0 | 移动指针坐标连续更新；对照 `docs/竞品截图/uibuilder的设计器.png` |
 
 ### 5.3 事件与逻辑
 
@@ -392,7 +438,7 @@
 
 | ID | 需求 | 优先级 | 验收要点 |
 |----|------|--------|----------|
-| FR-040 | 导入图片；C 数组或 FS 路径宏可选 | P0 | 预览可见 |
+| FR-040 | 导入图片；C 数组或 FS 路径宏可选；**属性与样式 imageSrc 字段均可从资源列表引用已导入图** | P0 | 预览可见；与 FR-016c 联动 |
 | FR-041 | TTF → LVGL 字体，支持字符裁剪 | P1 | — |
 | FR-042 | 多语言键值与设计器预览切换 | P1–P2 | — |
 | FR-043 | XLIFF 导入导出 | P2 | — |

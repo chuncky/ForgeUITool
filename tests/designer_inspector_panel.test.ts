@@ -82,4 +82,30 @@ describe("InspectorPanel tabs (Beken 属性 | 事件)", () => {
     expect(panelDisplay(wrapper, "prop-panel")).not.toBe("none");
     expect(panelDisplay(wrapper, "event-panel")).toBe("none");
   });
+
+  it("supports arrow-key tab navigation (V1-C focus order)", async () => {
+    const { wrapper, ui } = mountInspector();
+    const tablist = wrapper.get('[role="tablist"]');
+
+    await tablist.trigger("keydown", { key: "ArrowRight" });
+    expect(ui.rightTab).toBe("events");
+
+    await tablist.trigger("keydown", { key: "ArrowLeft" });
+    expect(ui.rightTab).toBe("props");
+
+    await tablist.trigger("keydown", { key: "End" });
+    expect(ui.rightTab).toBe("events");
+
+    await tablist.trigger("keydown", { key: "Home" });
+    expect(ui.rightTab).toBe("props");
+  });
+
+  it("marks inactive tabpanel inert/hidden for tab order", () => {
+    const { wrapper } = mountInspector();
+    const propsPanel = wrapper.get("#inspector-panel-props");
+    const eventsPanel = wrapper.get("#inspector-panel-events");
+    expect(propsPanel.attributes("inert")).toBeUndefined();
+    expect(eventsPanel.attributes("inert")).toBeDefined();
+    expect(eventsPanel.attributes("hidden")).toBeDefined();
+  });
 });

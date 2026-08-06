@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@forgeui/core/frame-anchor": path.resolve(__dirname, "../../packages/core/src/frame-anchor.ts"),
+      "@forgeui/core/types": path.resolve(__dirname, "../../packages/core/src/types.ts"),
     },
   },
   server: {

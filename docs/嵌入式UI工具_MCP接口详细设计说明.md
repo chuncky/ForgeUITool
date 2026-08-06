@@ -2,9 +2,10 @@
 
 > **文档类型：** 模块详细设计（MCP / AI 设计子系统）  
 > **产品暂名：** ForgeUI Kit  
-> **版本：** V1.0  
-> **日期：** 2026-07-30  
+> **版本：** V1.1  
+> **日期：** 2026-08-03  
 > **交付分期：** V2（差异化）；MVP 仅接口 + Bridge stub + Skill 骨架  
+> **V1.1：** 说明 GUI 样式 `bg_image` 资源选择缺口不影响 MCP：AI 仍经 `batch_update` / `styleKeys` 写路径；`forgeui_create_image_asset` 负责导入。GUI 对齐见属性面板详设 §6.4 / FR-016c。  
 > **对标竞品：** Beken LVGL UI Designer 2.x MCP（`ref/beken/lvgl_ui_designer_2.0.3/resources/mcp/`、`resources/ai-skill/`）  
 > **上游依据：** 《设计需求文档》V2.4 FR-072、AR-020～022、NFR-004；《软件概要设计说明》V1.7 §5.1/§5.11；《软件详细设计说明》V1.2 §11.1  
 > **合规：** 功能与体验对齐 Beken AI 路径（L1）；**不**兼容 `beken_lvgl_ui_designer` MCP 名称/Bridge 协议作为 L4；**不**读写 `.bkprj`
@@ -231,7 +232,7 @@ Bridge 校验：
 | 4 | `forgeui_update_node` | 单节点 properties/styles/events 合并写 | stub |
 | 5 | `forgeui_add_node_tree` | 递归创建子树 | stub |
 | 6 | `forgeui_get_page_screenshot` | 当前页画布截图 | stub |
-| 7 | `forgeui_create_image_asset` | 导入图片资源 | stub |
+| 7 | `forgeui_create_image_asset` | 导入图片资源（供属性 `src` / 样式 `bg_image` 引用） | stub |
 | 8 | `forgeui_generate` | 触发 A1 CodeGen + 可选 pack | stub |
 | 9 | `forgeui_ping` | Bridge 连通性 | 可实现 |
 
@@ -709,6 +710,7 @@ export function registerTools(server: McpServer) {
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| V1.1 | 2026-08-03 | 明确 create_image_asset / styleKeys 与 GUI FR-016c 分工；样式背景图选择属 Designer UX，非新 MCP 工具 |
 | V1.0 | 2026-07-30 | 首版：对标 Beken 2.x MCP/Bridge/Skill；映射 ForgeUI Project Model；冻结 forgeui_* 工具面 |
 
 ---

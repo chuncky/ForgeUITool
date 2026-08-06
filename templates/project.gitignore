@@ -1,0 +1,38 @@
+# ForgeUI project — local tool state & compile temps (do not commit)
+
+.forge/
+**/preview-build/out/
+
+# CMake / MSVC build trees
+**/CMakeCache.txt
+**/CMakeFiles/
+**/cmake_install.cmake
+**/compile_commands.json
+cmake-build-*/
+build/
+out/
+.vs/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+Win32/
+x64/
+
+*.obj
+*.o
+*.lib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.tlog
+*.lastbuildstate
+*.recipe
+*.iobj
+*.ipdb
+*.log
+.DS_Store
+
+# Keep generated sources (forgeui_generated/) and project JSON under version control by default.

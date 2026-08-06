@@ -16,6 +16,7 @@ const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Ajv2020 = require("ajv/dist/2020.js") as new (opts?: object) => {
   compile: (schema: object) => ((data: unknown) => boolean) & { errors?: Array<{ instancePath?: string; message?: string }> | null };
+  addSchema: (schema: object, key?: string) => unknown;
 };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const addFormats = require("ajv-formats") as (ajv: unknown) => unknown;
@@ -23,10 +24,15 @@ const addFormats = require("ajv-formats") as (ajv: unknown) => unknown;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function resolveSchemasDir(): string {
+  const resourcesPath =
+    typeof process === "object" && process && "resourcesPath" in process
+      ? String((process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ?? "")
+      : "";
   const candidates = [
     path.resolve(__dirname, "../../../schemas"),
     path.resolve(process.cwd(), "schemas"),
-  ];
+    resourcesPath ? path.join(resourcesPath, "forgeui-root", "schemas") : "",
+  ].filter(Boolean);
   for (const c of candidates) {
     if (fs.existsSync(path.join(c, "project.schema.json"))) return c;
   }
@@ -143,6 +149,7 @@ export function validateProjectDir(projectRoot: string): ValidateResult {
   const ajv = createAjv();
   const projectSchema = loadJsonObject(path.join(schemasDir, "project.schema.json"));
   const screenSchema = loadJsonObject(path.join(schemasDir, "screen.schema.json"));
+  ajv.addSchema(screenSchema);
   const validateProject = ajv.compile(projectSchema);
   const validateScreen = ajv.compile(screenSchema);
 
@@ -158,15 +165,6 @@ export function validateProjectDir(projectRoot: string): ValidateResult {
       code: ErrorCodes.E_VER_001,
       message: `lvglVersion "${project.lvglVersion}" is not in supported whitelist [${SUPPORTED_LVGL_VERSIONS.join(", ")}]`,
       path: "project.json/lvglVersion",
-    });
-  }
-
-  if (project.platform === "qm10xv" || project.platform === "qm10xh") {
-    diagnostics.push({
-      level: "warning",
-      code: ErrorCodes.E_PLAT_001,
-      message: `Platform ${project.platform} template is planned for V1; MVP focus is qm10xd`,
-      path: "project.json/platform",
     });
   }
 

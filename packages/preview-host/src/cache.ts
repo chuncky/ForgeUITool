@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { openProject, resolveCodegenPaths } from "@forgeui/core";
 
-export const PREVIEW_TEMPLATE_VERSION = "7";
+/** Bump when configure inputs change (e.g. GLOB dirs that must reconfigure). */
+export const PREVIEW_TEMPLATE_VERSION = "8";
 
 export interface PreviewBuildCache {
   fingerprint: string;
@@ -42,28 +43,43 @@ function resolveGeneratedRoot(projectRoot: string): string {
   }
 }
 
-/** Screen file set — GLOB in CMakeLists needs reconfigure when this changes. */
+/**
+ * Source file set under forgeui_generated that CMake `file(GLOB_RECURSE …/*.c)` captures
+ * at configure time. Adding image/*.c or fonts/*.c without reconfigure → link undefined ref.
+ * FR-016e / preview: property edits that introduce assets MUST change this listing.
+ */
 export function generatedScreensListing(projectRoot: string): string {
-  const screens = path.join(resolveGeneratedRoot(projectRoot), "screens");
-  if (!fs.existsSync(screens)) return "";
-  return fs
-    .readdirSync(screens)
-    .filter((n) => n.endsWith(".c"))
-    .sort()
-    .join(",");
+  return generatedAssetSourcesListing(projectRoot);
 }
 
-/** Content hash for logging only; build picks up changes via cmake deps without reconfigure. */
+/** screens/ + image/ + fonts/ .c basenames (sorted) for configure fingerprint. */
+export function generatedAssetSourcesListing(projectRoot: string): string {
+  const gen = resolveGeneratedRoot(projectRoot);
+  const names: string[] = [];
+  for (const sub of ["screens", "image", "fonts"]) {
+    const dir = path.join(gen, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const n of fs.readdirSync(dir)) {
+      if (n.endsWith(".c")) names.push(`${sub}/${n}`);
+    }
+  }
+  return names.sort().join(",");
+}
+
+/** Content hash for logging only; build picks up content edits via cmake deps without reconfigure. */
 export function generatedSourcesFingerprint(projectRoot: string): string {
   const gen = resolveGeneratedRoot(projectRoot);
   const parts: string[] = [];
   for (const rel of ["ui.c", "ui_nav.c", "ui.h"]) {
     parts.push(`${rel}=${fileContentHash(path.join(gen, rel))}`);
   }
-  const screens = path.join(gen, "screens");
-  if (fs.existsSync(screens)) {
-    for (const name of fs.readdirSync(screens).sort()) {
-      if (name.endsWith(".c")) parts.push(`screens/${name}=${fileContentHash(path.join(screens, name))}`);
+  for (const sub of ["screens", "image", "fonts"]) {
+    const dir = path.join(gen, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir).sort()) {
+      if (name.endsWith(".c")) {
+        parts.push(`${sub}/${name}=${fileContentHash(path.join(dir, name))}`);
+      }
     }
   }
   return hashParts(parts);
@@ -80,7 +96,7 @@ export function computeConfigureFingerprint(input: PreviewFingerprintInput): str
     input.generator ?? "default",
     `${input.display.width}x${input.display.height}x${input.display.colorDepth}`,
     input.lvglVersion,
-    generatedScreensListing(input.projectRoot),
+    generatedAssetSourcesListing(input.projectRoot),
     ...templateSigs,
   ]);
 }

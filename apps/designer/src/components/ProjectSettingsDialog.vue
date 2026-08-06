@@ -4,22 +4,13 @@
       <h2>项目设置</h2>
       <label>名称 <input v-model="form.name" /></label>
       <label>
-        平台
-        <select v-model="form.platform">
-          <option value="qm10xd">qm10xd</option>
-          <option value="qm10xv">qm10xv</option>
-          <option value="qm10xh">qm10xh</option>
-        </select>
-      </label>
-      <label>
         分辨率
         <div class="row">
           <input v-model.number="form.width" type="number" min="1" />
           <span>×</span>
           <input v-model.number="form.height" type="number" min="1" />
         </div>
-      </label>
-      <label>色深 <input v-model.number="form.colorDepth" type="number" min="1" /></label>
+      </label>      <label>色深 <input v-model.number="form.colorDepth" type="number" min="1" /></label>
       <label>lvglVersion <input v-model="form.lvglVersion" /></label>
       <label>
         deliveryMode
@@ -79,7 +70,6 @@ const ui = useUiStore();
 
 const form = reactive({
   name: "",
-  platform: "qm10xd" as "qm10xd" | "qm10xv" | "qm10xh",
   width: 480,
   height: 320,
   colorDepth: 16,
@@ -97,7 +87,6 @@ watch(
     if (!open || !loaded) return;
     const p = loaded.project;
     form.name = p.name;
-    form.platform = p.platform as typeof form.platform;
     form.width = p.display.width;
     form.height = p.display.height;
     form.colorDepth = p.display.colorDepth;
@@ -111,12 +100,14 @@ watch(
 );
 
 async function exportSdk() {
+  ui.bottomAuxTab = "log";
   ui.logPanelCollapsed = false;
   const sdkPath = form.sdkPath.trim() || store.loaded?.project.sdk?.path?.trim();
   await store.exportSdk(sdkPath || undefined);
 }
 
 async function packUi() {
+  ui.bottomAuxTab = "log";
   ui.logPanelCollapsed = false;
   await store.pack();
 }
@@ -124,7 +115,6 @@ async function packUi() {
 async function save() {
   await store.updateMeta({
     name: form.name,
-    platform: form.platform,
     display: { width: form.width, height: form.height, colorDepth: form.colorDepth },
     lvglVersion: form.lvglVersion,
     deliveryMode: form.deliveryMode,

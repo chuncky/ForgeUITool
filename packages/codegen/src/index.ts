@@ -1,2 +1,10 @@
 export { generate } from "./generate.js";
 export type { CodeGenOptions, CodeGenResult } from "./generate.js";
+export { lvLabelLongModeExpr } from "./label-long-mode.js";
+export { pruneCodegenOrphans, listFilesRecursive } from "./prune-orphans.js";
+export { emitProjectFonts, fontCIdent, fontBaseName, fontRefForStyle, builtinFontExprForSize, collectFontSizeTargets, isLikelyFontFile, normalizeLvFontConvSource, writeFontHeader } from "./font-emit.js";
+export { emitProjectI18n } from "./i18n-emit.js";
+export { emitProjectAnimations, resolveAnimNodeBinding } from "./anim-emit.js";
+export { emitProjectVariables } from "./vars-emit.js";
+export { emitMicroPython } from "./micropython-emit.js";
+export { emitWidgetStyleLines, lvglSelector, PART_TO_LVGL, STATE_TO_LVGL } from "./style-emit.js";

@@ -8,12 +8,32 @@
     >
       <template v-if="spec.type !== 'boolean'">{{ label(spec) }}</template>
 
-      <textarea
-        v-if="spec.type === 'text'"
-        rows="3"
-        :value="textVal(spec.name)"
-        @change="emitChange(spec, $event)"
-      />
+      <!-- Keep text + i18n in one v-if branch; a bare v-if on i18n used to break the
+           chain and also render the trailing v-else <input> (duplicate text box). -->
+      <template v-if="spec.type === 'text'">
+        <textarea
+          v-if="spec.multiline"
+          rows="3"
+          :value="textVal(spec.name)"
+          @change="emitChange(spec, $event)"
+        />
+        <input
+          v-else
+          type="text"
+          :value="textVal(spec.name)"
+          @change="emitChange(spec, $event)"
+        />
+        <div v-if="i18nEnabled && isPrimaryText(spec.name)" class="i18n-row">
+          <label class="i18n-label">
+            i18n 键
+            <select :value="String(nodeProps.i18nKey ?? '')" @change="onI18nKey">
+              <option value="">— 无 —</option>
+              <option v-for="s in i18nKeys" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </label>
+          <span v-if="previewHint" class="preview-hint" title="预览语言下的译文">预览: {{ previewHint }}</span>
+        </div>
+      </template>
 
       <input
         v-else-if="spec.type === 'number'"
@@ -59,12 +79,21 @@
       </div>
 
       <div v-else-if="spec.type === 'imageSrc'" class="image-src-row">
-        <input
+        <select
+          v-if="imageOptions.length"
           :value="String(nodeProps[spec.name] ?? spec.default ?? '')"
-          placeholder="assets/..."
+          @change="emitChange(spec, $event)"
+        >
+          <option value="">— 选择 —</option>
+          <option v-for="opt in imageOptions" :key="opt.path" :value="opt.path">{{ opt.id }}</option>
+        </select>
+        <input
+          v-else
+          :value="String(nodeProps[spec.name] ?? spec.default ?? '')"
+          placeholder="assets/images/..."
           @change="emitChange(spec, $event)"
         />
-        <button type="button" class="mini" title="打开资源管理" @click="openAssets">资源</button>
+        <button type="button" class="mini" title="从资源管理选择" @click="pickImage(spec.name)">选择</button>
       </div>
 
       <div v-else-if="spec.type === 'range'" class="range-row">
@@ -91,6 +120,8 @@
 import type { PropSpecMeta } from "../../env";
 import { colorSwatch, toRgbaHex } from "../../utils/color";
 import { useUiStore } from "../../stores/ui";
+import { useProjectStore } from "../../stores/project";
+import { computed } from "vue";
 
 const props = defineProps<{
   specs: PropSpecMeta[];
@@ -102,6 +133,27 @@ const emit = defineEmits<{
 }>();
 
 const ui = useUiStore();
+const projectStore = useProjectStore();
+
+const imageOptions = computed(() => projectStore.imageAssets);
+const i18nEnabled = computed(() => !!projectStore.i18nConfig.enabled);
+const i18nKeys = computed(() => projectStore.i18nConfig.strings.map((s) => s.id));
+const previewHint = computed(() => {
+  const key = typeof props.nodeProps.i18nKey === "string" ? props.nodeProps.i18nKey : "";
+  if (!key || !i18nEnabled.value) return "";
+  const entry = projectStore.i18nConfig.strings.find((s) => s.id === key);
+  if (!entry) return "";
+  const loc = projectStore.i18nConfig.previewLocale ?? projectStore.i18nConfig.defaultLocale;
+  return entry.values[loc] ?? "";
+});
+
+function isPrimaryText(name: string) {
+  return name === "text" || name === "label" || name === "title";
+}
+
+function onI18nKey(e: Event) {
+  emit("change", "i18nKey", (e.target as HTMLSelectElement).value);
+}
 
 function label(spec: PropSpecMeta) {
   return spec.label ?? spec.name;
@@ -145,8 +197,8 @@ function onRange(spec: PropSpecMeta, side: "min" | "max", e: Event) {
   emit("change", spec.name, next);
 }
 
-function openAssets() {
-  ui.showAssets = true;
+function pickImage(fieldName: string) {
+  ui.openAssetsForImagePick((path) => emit("change", fieldName, path));
 }
 </script>
 
@@ -209,6 +261,10 @@ textarea {
   align-items: center;
 }
 
+.image-src-row select {
+  min-width: 0;
+}
+
 .range-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -223,5 +279,23 @@ textarea {
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
+}
+
+.i18n-row {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.i18n-label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.preview-hint {
+  font-size: 11px;
+  color: var(--accent, #3d9cf0);
+  opacity: 0.9;
 }
 </style>

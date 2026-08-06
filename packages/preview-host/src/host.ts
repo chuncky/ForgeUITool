@@ -1,22 +1,13 @@
 import { ErrorCodes, ForgeError } from "@forgeui/shared";
 import { SdlBackend } from "./sdl.js";
+import { WasmBackend } from "./wasm.js";
+import { hotReloadPreviewIr } from "./wasm/forge-bridge.js";
 import type { PreviewBackend, PreviewBuildLogSink, PreviewHost, PreviewRunResult } from "./types.js";
-
-class WasmBackendStub implements PreviewBackend {
-  readonly id = "wasm" as const;
-  async prepare(): Promise<never> {
-    throw new ForgeError(ErrorCodes.E_PREVIEW_WASM_NOT_IMPL, "Wasm preview backend is stubbed (V2)");
-  }
-  async start(): Promise<never> {
-    throw new ForgeError(ErrorCodes.E_PREVIEW_WASM_NOT_IMPL, "Wasm preview backend is stubbed (V2)");
-  }
-  async stop(): Promise<void> {}
-}
 
 export class DefaultPreviewHost implements PreviewHost {
   private backends = new Map<string, PreviewBackend>([
     ["sdl", new SdlBackend()],
-    ["wasm", new WasmBackendStub()],
+    ["wasm", new WasmBackend()],
   ]);
 
   getBackend(id: string): PreviewBackend {
@@ -44,6 +35,29 @@ export class DefaultPreviewHost implements PreviewHost {
       skipGenerate: opts.skipGenerate,
       onBuildLog: opts.onBuildLog,
     });
+  }
+
+  /** FR-063: refresh IR into resident Wasm/IR preview session (no full rebuild). */
+  async hotReload(projectRoot: string): Promise<{
+    ok: boolean;
+    buildDir: string;
+    message: string;
+    diagnostics: import("@forgeui/shared").Diagnostic[];
+  }> {
+    const result = hotReloadPreviewIr(projectRoot);
+    return {
+      ok: result.ok,
+      buildDir: result.buildDir,
+      message: result.message,
+      diagnostics: [
+        {
+          level: result.ok ? "info" : "warning",
+          code: result.ok ? "E_PREV_HOT_RELOAD" : "E_PREV_HOT_RELOAD_SKIP",
+          message: result.message,
+          path: result.buildDir,
+        },
+      ],
+    };
   }
 }
 

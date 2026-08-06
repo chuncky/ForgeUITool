@@ -46,6 +46,22 @@ describe("PageTreePanel (FR-011a/b, FR-013a/b)", () => {
     expect(node).toContain("toggleNodeHidden");
   });
 
+  it("startup page row uses cool cyan 3D class, not name border (FR-011c)", () => {
+    const panel = fs.readFileSync(
+      path.join(repoRoot, "apps/designer/src/components/PageTreePanel.vue"),
+      "utf8",
+    );
+    expect(panel).toContain("startup:");
+    expect(panel).toContain("defaultScreen");
+    expect(panel).toMatch(/\.page-row\.startup\s*\{/);
+    expect(panel).toMatch(/linear-gradient\(180deg/);
+    expect(panel).toContain("#5eb0f7");
+    expect(panel).toContain("#2a6fad");
+    expect(panel).toContain("FR-011c");
+    // Must not use page-name outline/frame as primary startup cue
+    expect(panel).not.toMatch(/\.page-label\.startup|\.page-label\.on\s*\{[^}]*border/);
+  });
+
   it("Main IPC wires page tree mutations", () => {
     const main = fs.readFileSync(path.join(repoRoot, "apps/designer/electron/main.mjs"), "utf8");
     expect(main).toContain('"project:duplicateScreen"');

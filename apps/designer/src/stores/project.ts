@@ -1,8 +1,10 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import type { Diagnostic, EventBinding, SerializedProject, UiNode, WidgetMeta } from "../env";
 import { usePreviewStore } from "./preview";
 import { useSettingsStore } from "./settings";
+import { useUiStore } from "./ui";
+import { clearAssetUrlCache } from "../utils/asset-url";
 
 function desktop() {
   if (!window.forgeuiDesktop) {
@@ -55,6 +57,20 @@ function findNode(node: UiNode, id: string): UiNode | null {
   return null;
 }
 
+/** Direct parent of `id` under `root`, or null if `id` is root / missing. */
+function findParentNode(root: UiNode, id: string): UiNode | null {
+  function walk(node: UiNode, parent: UiNode | null): UiNode | null | undefined {
+    if (node.id === id) return parent;
+    for (const c of node.children) {
+      const hit = walk(c, node);
+      if (hit !== undefined) return hit;
+    }
+    return undefined;
+  }
+  const hit = walk(root, null);
+  return hit === undefined ? null : hit;
+}
+
 function resolveSelection(data: SerializedProject, sid: string, preferred: string): string {
   const screen = data.screens[sid];
   if (!screen) return sid;
@@ -66,6 +82,7 @@ export const useProjectStore = defineStore("project", () => {
   const loaded = ref<SerializedProject | null>(null);
   const screenId = ref<string>("");
   const selectedId = ref<string>("");
+  const selectedIds = ref<string[]>([]);
   const widgets = ref<WidgetMeta[]>([]);
   const log = ref<string>("");
   const statusLine = ref<string>("就绪");
@@ -77,6 +94,54 @@ export const useProjectStore = defineStore("project", () => {
   const dirty = ref(false);
   const canUndo = ref(false);
   const canRedo = ref(false);
+  const aiTransactionPending = ref(false);
+  const aiChangeCount = ref(0);
+
+  /** Serialize IPC mutations so flush-before-switch/save can await in-flight commits. */
+  let mutationChain: Promise<void> = Promise.resolve();
+
+  function enqueueMutation<T>(task: () => Promise<T>): Promise<T> {
+    const run = mutationChain.then(task, task);
+    mutationChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  /**
+   * Blur active input so @change handlers fire, then wait for mutation IPC.
+   * Prevents multi-page edit loss when switching screens / saving (FR-011d).
+   */
+  async function flushPendingEditor(): Promise<void> {
+    if (typeof document !== "undefined") {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && typeof el.blur === "function") {
+        const tag = el.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable) {
+          el.blur();
+        }
+      }
+    }
+    await nextTick();
+    await mutationChain;
+  }
+
+  /** FR-086: A2 pack load overlay on canvas (does not mutate project). */
+  const packPreview = ref<{
+    active: boolean;
+    outDir: string;
+    entryScreen: string;
+    viewScreenId: string;
+    widgetCount: number;
+    screens: Array<{ id: string; name: string; document: UiNode }>;
+  } | null>(null);
+
+  const packPreviewScreen = computed(() => {
+    if (!packPreview.value?.active) return null;
+    const id = packPreview.value.viewScreenId;
+    return packPreview.value.screens.find((s) => s.id === id)?.document ?? null;
+  });
 
   const currentScreen = computed(() => {
     if (!loaded.value || !screenId.value) return null;
@@ -87,6 +152,93 @@ export const useProjectStore = defineStore("project", () => {
     if (!currentScreen.value || !selectedId.value) return null;
     return findNode(currentScreen.value, selectedId.value);
   });
+
+  /** Parent content box for 3×3 snap (Beken); screen children use display / screen frame. */
+  const selectedParentSize = computed((): { w: number; h: number } => {
+    const screen = currentScreen.value;
+    const id = selectedId.value;
+    if (!screen || !id) {
+      return {
+        w: loaded.value?.project.display.width ?? 480,
+        h: loaded.value?.project.display.height ?? 320,
+      };
+    }
+    const parent = findParentNode(screen, id);
+    if (!parent || parent.type === "screen") {
+      return {
+        w: screen.frame?.w ?? loaded.value?.project.display.width ?? 480,
+        h: screen.frame?.h ?? loaded.value?.project.display.height ?? 320,
+      };
+    }
+    return { w: parent.frame.w, h: parent.frame.h };
+  });
+
+  const imageAssets = computed(() => {
+    const raw = loaded.value?.project.assets?.images ?? [];
+    return raw
+      .map((item) => {
+        if (typeof item === "string") {
+          const base = item.split("/").pop() ?? item;
+          const id = base.replace(/\.[^.]+$/, "");
+          return { id, path: item };
+        }
+        if (item && typeof item === "object" && "path" in item) {
+          const o = item as { id?: string; path: string };
+          const base = o.path.split("/").pop() ?? o.path;
+          return { id: o.id ?? base.replace(/\.[^.]+$/, ""), path: o.path };
+        }
+        return null;
+      })
+      .filter((x): x is { id: string; path: string } => x !== null);
+  });
+
+  const fontAssets = computed(() => {
+    const raw = loaded.value?.project.assets?.fonts ?? [];
+    return raw
+      .map((item) => {
+        if (typeof item === "string") {
+          const base = item.split("/").pop() ?? item;
+          return { id: base.replace(/\.[^.]+$/, ""), path: item };
+        }
+        if (item && typeof item === "object" && "path" in item) {
+          const o = item as { id?: string; path: string; size?: number };
+          const base = o.path.split("/").pop() ?? o.path;
+          return { id: o.id ?? base.replace(/\.[^.]+$/, ""), path: o.path, size: o.size };
+        }
+        return null;
+      })
+      .filter((x): x is { id: string; path: string; size?: number } => x !== null);
+  });
+
+  const colorLibrary = computed(() => loaded.value?.project.colors ?? []);
+
+  const styleThemes = computed(() => loaded.value?.project.themes ?? []);
+  const customWidgets = computed(() => loaded.value?.project.customWidgets ?? []);
+  const i18nConfig = computed(() => {
+    const raw = loaded.value?.project.i18n;
+    if (!raw || typeof raw !== "object") {
+      return {
+        enabled: false,
+        defaultLocale: "en",
+        previewLocale: "en",
+        locales: [
+          { id: "en", name: "English" },
+          { id: "zh-CN", name: "简体中文" },
+        ],
+        strings: [] as Array<{ id: string; note?: string; values: Record<string, string> }>,
+      };
+    }
+    return {
+      enabled: !!raw.enabled,
+      defaultLocale: raw.defaultLocale ?? "en",
+      previewLocale: raw.previewLocale ?? raw.defaultLocale ?? "en",
+      locales: Array.isArray(raw.locales) ? raw.locales : [],
+      strings: Array.isArray(raw.strings) ? raw.strings : [],
+    };
+  });
+  const animations = computed(() =>
+    Array.isArray(loaded.value?.project.animations) ? loaded.value!.project.animations! : [],
+  );
 
   const logText = computed(() => {
     const base = operationLogs.value.map((l) => `[${l.time}] [${l.source}] ${l.message}`).join("\n");
@@ -192,6 +344,38 @@ export const useProjectStore = defineStore("project", () => {
     syncHistoryFlags(state);
   }
 
+  async function refreshAiTransactionState() {
+    const state = await desktop().getAiTransactionState();
+    aiTransactionPending.value = state.pending;
+    aiChangeCount.value = state.changeCount;
+  }
+
+  function applyAiModelUpdate(payload: {
+    loaded: SerializedProject;
+    pending?: boolean;
+    changeCount?: number;
+  }) {
+    applyLoadedData(payload.loaded, { resetHistory: true });
+    aiTransactionPending.value = payload.pending ?? false;
+    aiChangeCount.value = payload.changeCount ?? 0;
+  }
+
+  async function commitAiTransaction() {
+    const result = await desktop().commitAiTransaction();
+    if (result.loaded) applyLoadedData(result.loaded, { resetHistory: true });
+    aiTransactionPending.value = false;
+    aiChangeCount.value = 0;
+    statusLine.value = "已保存 AI 变更";
+  }
+
+  async function rollbackAiTransaction() {
+    const result = await desktop().rollbackAiTransaction();
+    if (result.loaded) applyLoadedData(result.loaded, { resetHistory: true });
+    aiTransactionPending.value = false;
+    aiChangeCount.value = 0;
+    statusLine.value = "已撤销 AI 变更";
+  }
+
   function applyLoadedData(
     data: SerializedProject,
     opts: {
@@ -201,6 +385,7 @@ export const useProjectStore = defineStore("project", () => {
       selectedId?: string;
     } = {},
   ) {
+    clearAssetUrlCache();
     loaded.value = JSON.parse(JSON.stringify(data)) as SerializedProject;
     const sid =
       opts.screenId ??
@@ -209,6 +394,11 @@ export const useProjectStore = defineStore("project", () => {
     selectedId.value = opts.selectedId
       ? resolveSelection(data, sid, opts.selectedId)
       : sid;
+    if (selectedId.value === sid) {
+      selectedIds.value = [];
+    } else {
+      selectedIds.value = [selectedId.value];
+    }
     dirty.value = false;
     if (opts.resetHistory !== false) {
       canUndo.value = false;
@@ -265,6 +455,42 @@ export const useProjectStore = defineStore("project", () => {
     log.value = `已打开: ${data.root}`;
   }
 
+  async function importForgeui(): Promise<boolean> {
+    const result = await desktop().importForgeui();
+    if (result.cancelled) return false;
+    if (!result.ok) {
+      appendDiagnostics("import", result.diagnostics ?? []);
+      statusLine.value = "导入 .forgeui 失败";
+      return false;
+    }
+    if (result.loaded) {
+      applyLoaded(result.loaded);
+      syncHistoryFlags(result);
+    }
+    await ensureWidgets();
+    log.value = `已从 .forgeui 导入: ${loaded.value?.root ?? ""}`;
+    statusLine.value = "导入完成";
+    return true;
+  }
+
+  async function importFigma(): Promise<boolean> {
+    const result = await desktop().importFigma();
+    if (result.cancelled) return false;
+    if (!result.ok) {
+      appendDiagnostics("import", result.diagnostics ?? []);
+      statusLine.value = "导入 Figma JSON 失败";
+      return false;
+    }
+    if (result.loaded) {
+      applyLoaded(result.loaded);
+      syncHistoryFlags(result);
+    }
+    await ensureWidgets();
+    log.value = `已从 Figma JSON 导入: ${loaded.value?.root ?? ""}`;
+    statusLine.value = "导入完成";
+    return true;
+  }
+
   async function revealProjectFolder() {
     if (!loaded.value) return;
     const result = await desktop().openProjectFolder();
@@ -278,7 +504,6 @@ export const useProjectStore = defineStore("project", () => {
 
   async function createNew(opts: {
     name: string;
-    platform: "qm10xd" | "qm10xv" | "qm10xh";
     template: "blank" | "hello-dual-screen";
     width: number;
     height: number;
@@ -289,7 +514,6 @@ export const useProjectStore = defineStore("project", () => {
     const data = await desktop().createProject({
       root,
       name: opts.name,
-      platform: opts.platform,
       fromTemplate: opts.template,
       deliveryMode: opts.deliveryMode ?? "both",
       display: {
@@ -301,12 +525,14 @@ export const useProjectStore = defineStore("project", () => {
     });
     applyLoaded(data);
     await ensureWidgets();
-    log.value = `已新建工程: ${data.root}（${opts.platform} / ${opts.template}）`;
+    log.value = `已新建工程: ${data.root}（${opts.template}）`;
     return true;
   }
 
   async function save() {
-    if (!loaded.value || !dirty.value) return;
+    if (!loaded.value) return;
+    await flushPendingEditor();
+    if (!dirty.value) return;
     appendLog("save", "info", "正在保存工程...");
     const result = await desktop().saveProject();
     if (!result.ok) {
@@ -321,7 +547,36 @@ export const useProjectStore = defineStore("project", () => {
     dirty.value = false;
     const name = loaded.value?.project.name ?? "工程";
     statusLine.value = `已保存 · ${name}`;
-    appendLog("save", "info", `已保存到 ${loaded.value?.root ?? ""}`);
+    appendLog("save", "info", `已保存到 ${loaded.value?.root ?? ""}（已写入历史快照）`);
+  }
+
+  async function fetchSnapshots() {
+    if (!loaded.value) return [];
+    return desktop().listSnapshots();
+  }
+
+  async function restoreSnapshot(id: string) {
+    if (!loaded.value) return false;
+    if (!window.confirm("恢复历史版本将覆盖当前工程文件，是否继续？")) return false;
+    const result = await desktop().restoreSnapshot(id);
+    if (!result.ok || !result.loaded) return false;
+    applyLoaded(result.loaded, { resetHistory: true });
+    syncHistoryFlags(result);
+    dirty.value = false;
+    appendLog("history", "info", `已恢复历史版本 ${id}`);
+    statusLine.value = `已恢复历史 · ${id}`;
+    return true;
+  }
+
+  async function createNamedSnapshot(label: string) {
+    if (!loaded.value) return null;
+    const result = await desktop().createSnapshot(label);
+    if (result.loaded) {
+      loaded.value = JSON.parse(JSON.stringify(result.loaded)) as SerializedProject;
+    }
+    dirty.value = false;
+    appendLog("history", "info", `已创建快照 ${result.meta.id}${label ? ` (${label})` : ""}`);
+    return result.meta;
   }
 
   async function updateMeta(patch: Record<string, unknown>) {
@@ -332,24 +587,96 @@ export const useProjectStore = defineStore("project", () => {
     log.value = "已更新项目设置";
   }
 
-  async function select(id: string) {
+  async function select(id: string, opts?: { additive?: boolean }) {
+    if (id === screenId.value) {
+      selectedId.value = id;
+      selectedIds.value = [];
+      return;
+    }
+    if (opts?.additive) {
+      const set = new Set(selectedIds.value.length ? selectedIds.value : selectedId.value !== screenId.value ? [selectedId.value] : []);
+      if (set.has(id)) {
+        set.delete(id);
+        if (!set.size) {
+          selectedId.value = screenId.value;
+          selectedIds.value = [];
+          return;
+        }
+        selectedId.value = [...set].at(-1)!;
+      } else {
+        set.add(id);
+        selectedId.value = id;
+      }
+      selectedIds.value = [...set];
+      return;
+    }
     selectedId.value = id;
+    selectedIds.value = [id];
+  }
+
+  function isSelected(id: string): boolean {
+    if (selectedIds.value.length) return selectedIds.value.includes(id);
+    return selectedId.value === id;
   }
 
   async function switchScreen(id: string) {
+    if (id === screenId.value) {
+      selectedId.value = id;
+      selectedIds.value = [];
+      return;
+    }
+    await flushPendingEditor();
     screenId.value = id;
     selectedId.value = id;
+    selectedIds.value = [];
+  }
+
+  /** Apply patch to in-memory tree immediately so canvas/panel update before IPC returns. */
+  function applyLocalNodePatch(sid: string, nid: string, patch: Record<string, unknown>) {
+    if (!loaded.value) return;
+    const screen = loaded.value.screens[sid];
+    if (!screen) return;
+    const node = findNode(screen, nid);
+    if (!node) return;
+    if (patch.name !== undefined) node.name = String(patch.name);
+    if (patch.frame && typeof patch.frame === "object") {
+      node.frame = { ...node.frame, ...(patch.frame as Record<string, number>) };
+    }
+    if (patch.props && typeof patch.props === "object") {
+      node.props = { ...node.props, ...(patch.props as Record<string, unknown>) };
+    }
+    if (patch.extraData && typeof patch.extraData === "object") {
+      node.extraData = {
+        ...(node.extraData ?? {}),
+        ...(patch.extraData as Record<string, unknown>),
+      };
+    }
+    if (patch.styleRef !== undefined) {
+      if (patch.styleRef === null || patch.styleRef === "") delete node.styleRef;
+      else node.styleRef = String(patch.styleRef);
+    }
+    if (patch.style && typeof patch.style === "object") {
+      node.style = patch.style as UiNode["style"];
+    }
   }
 
   async function patchSelected(patch: Record<string, unknown>) {
     if (!loaded.value || !selectedId.value) return;
-    const result = await desktop().updateNode({
-      screenId: screenId.value,
-      nodeId: selectedId.value,
-      patch,
-      _editor: editorContext(),
+    const sid = screenId.value;
+    const nid = selectedId.value;
+    const editor = { screenId: sid, selectedId: nid };
+    // Optimistic: tab names / props must paint on canvas without waiting for Electron IPC.
+    applyLocalNodePatch(sid, nid, patch);
+    dirty.value = true;
+    await enqueueMutation(async () => {
+      const result = await desktop().updateNode({
+        screenId: sid,
+        nodeId: nid,
+        patch,
+        _editor: editor,
+      });
+      applyMutationResult(result);
     });
-    applyMutationResult(result);
   }
 
   async function patchSelectedStyle(part: string, state: string, props: Record<string, unknown>) {
@@ -365,35 +692,338 @@ export const useProjectStore = defineStore("project", () => {
     applyMutationResult(result);
   }
 
+  async function setColorLibrary(colors: Array<{ id: string; name: string; value: string }>) {
+    await updateMeta({ colors });
+  }
+
+  async function setStyleThemes(
+    themes: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      createdAt?: string;
+      widgetType?: string;
+      part: string;
+      state: string;
+      props: Record<string, unknown>;
+    }>,
+  ) {
+    await updateMeta({ themes });
+  }
+
+  async function setI18n(i18n: Record<string, unknown>) {
+    await updateMeta({ i18n });
+  }
+
+  async function setPreviewLocale(locale: string) {
+    if (!loaded.value) return;
+    const cur = i18nConfig.value;
+    await updateMeta({
+      i18n: {
+        ...cur,
+        strings: cur.strings.map((s) => ({ ...s, values: { ...s.values } })),
+        locales: cur.locales.map((l) => ({ ...l })),
+        previewLocale: locale,
+        enabled: true,
+      },
+    });
+  }
+
+  async function setAnimations(animations: unknown[]) {
+    await updateMeta({ animations });
+  }
+
+  async function seedI18nFromProject() {
+    if (!loaded.value) return;
+    const result = await desktop().seedI18n({ _editor: editorContext() });
+    applyMutationResult(result);
+    appendLog("i18n", "info", `已播种 ${result.added ?? 0} 条词条`);
+  }
+
+  async function exportI18nXliff(
+    sourceLocale: string,
+    targetLocale: string,
+    opts?: { onlyMissing?: boolean },
+  ) {
+    const result = await desktop().exportXliff({
+      sourceLocale,
+      targetLocale,
+      onlyMissing: opts?.onlyMissing,
+    });
+    if (result.ok) {
+      appendLog(
+        "i18n",
+        "info",
+        `已导出 XLIFF → ${result.path}${opts?.onlyMissing ? "（仅缺失）" : ""}`,
+      );
+    }
+  }
+
+  async function importI18nXliff() {
+    if (!loaded.value) return;
+    const result = await desktop().importXliff({ _editor: editorContext() });
+    if (result.canceled) return;
+    applyMutationResult(result);
+    appendLog("i18n", "info", `已导入 XLIFF，更新 ${result.updated ?? 0} 条`);
+  }
+
+  async function estimateMemory() {
+    const loadedProj = loaded.value;
+    if (!loadedProj) {
+      return {
+        imagesBytes: 0,
+        fontsEstimateBytes: 0,
+        screensBytes: 0,
+        animEstimateBytes: 0,
+        totalBytes: 0,
+        notes: [] as string[],
+      };
+    }
+    const images = imageAssets.value.length;
+    const fonts = fontAssets.value.length;
+    let nodeCount = 0;
+    const walk = (n: { children?: unknown[] }) => {
+      nodeCount += 1;
+      for (const c of n.children ?? []) walk(c as { children?: unknown[] });
+    };
+    for (const s of Object.values(loadedProj.screens)) walk(s as { children?: unknown[] });
+    const anims = animations.value;
+    const imagesBytes = images * 64 * 64 * 4;
+    const fontsEstimateBytes = fonts * 12_000;
+    const screensBytes = nodeCount * 256;
+    const animEstimateBytes = anims.reduce((a, x) => a + x.tracks.length * 64 + 128, 0);
+    return {
+      imagesBytes,
+      fontsEstimateBytes,
+      screensBytes,
+      animEstimateBytes,
+      totalBytes: imagesBytes + fontsEstimateBytes + screensBytes + animEstimateBytes,
+      notes: [
+        `${images} image(s) ≈ 64×64 ARGB8888`,
+        `${fonts} font(s) ≈ 12KB each`,
+        `${nodeCount} nodes × 256B`,
+        `${anims.length} animation(s)`,
+      ],
+    };
+  }
+
+  async function previewPackedUi() {
+    if (!loaded.value) return;
+    appendLog("pack", "info", "正在打包并装载预览（FR-086）…");
+    const packResult = await desktop().packPreview();
+    appendDiagnostics("pack", packResult.diagnostics ?? []);
+    if (!packResult.ok) {
+      packPreview.value = null;
+      appendLog("pack", "error", "UI 包装载预览失败");
+      return;
+    }
+    const screens = packResult.screens ?? [];
+    const entry = packResult.entryScreen ?? screens[0]?.id ?? "";
+    packPreview.value = {
+      active: true,
+      outDir: packResult.outDir,
+      entryScreen: entry,
+      viewScreenId: entry,
+      widgetCount: packResult.widgetCount,
+      screens,
+    };
+    const logicNote = packResult.packageLogic?.allowedActions?.length
+      ? `；包内动作白名单 ${packResult.packageLogic.allowedActions.length} 项（FR-090）`
+      : "";
+    appendLog(
+      "pack",
+      "info",
+      `UI 包装载预览成功：${packResult.outDir} · ${packResult.screenCount} 屏 · ${packResult.widgetCount} 控件 · entry=${entry || "?"}${logicNote}`,
+    );
+  }
+
+  function setPackPreviewScreen(id: string) {
+    if (!packPreview.value?.active) return;
+    if (!packPreview.value.screens.some((s) => s.id === id)) return;
+    packPreview.value = { ...packPreview.value, viewScreenId: id };
+  }
+
+  function clearPackPreview() {
+    packPreview.value = null;
+    appendLog("pack", "info", "已退出 UI 包装载预览，恢复设计画布");
+  }
+
+  async function saveStyleTheme(input: {
+    name: string;
+    description?: string;
+    part: string;
+    state: string;
+    props: Record<string, unknown>;
+    widgetType?: string;
+  }) {
+    const name = input.name.trim();
+    if (!name) return;
+    const base = name
+      .toLowerCase()
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/gi, "_")
+      .replace(/^_+|_+$/g, "") || "theme";
+    const existing = new Set(styleThemes.value.map((t) => t.id));
+    let id = base;
+    if (existing.has(id)) {
+      let i = 2;
+      while (existing.has(`${base}_${i}`)) i += 1;
+      id = `${base}_${i}`;
+    }
+    const description = input.description?.trim() || undefined;
+    await setStyleThemes([
+      ...styleThemes.value,
+      {
+        id,
+        name,
+        description,
+        createdAt: new Date().toISOString(),
+        widgetType: input.widgetType,
+        part: input.part,
+        state: input.state,
+        props: { ...input.props },
+      },
+    ]);
+  }
+
+  async function deleteStyleTheme(themeId: string) {
+    await setStyleThemes(styleThemes.value.filter((t) => t.id !== themeId));
+  }
+
+  async function applyStyleTheme(themeId: string) {
+    const theme = styleThemes.value.find((t) => t.id === themeId);
+    if (!theme) return;
+    await patchSelected({
+      styleKeys: { part: theme.part, state: theme.state, props: theme.props },
+      styleRef: theme.id,
+    });
+  }
+
   function widgetSpec(type: string): WidgetMeta | undefined {
     return widgets.value.find((w) => w.type === type);
   }
 
   async function setEvents(events: EventBinding[]) {
     if (!loaded.value || !selectedId.value) return;
-    const result = await desktop().setEvents({
-      screenId: screenId.value,
-      nodeId: selectedId.value,
-      events,
-      _editor: editorContext(),
+    const sid = screenId.value;
+    const nid = selectedId.value;
+    const editor = { screenId: sid, selectedId: nid };
+    await enqueueMutation(async () => {
+      const result = await desktop().setEvents({
+        screenId: sid,
+        nodeId: nid,
+        events,
+        _editor: editor,
+      });
+      applyMutationResult(result);
     });
-    applyMutationResult(result);
   }
 
-  async function addWidget(type: string) {
+  async function addWidget(type: string, frame?: { x: number; y: number }) {
     if (!loaded.value) return;
     const parentId =
       selectedNode.value?.type === "screen" || (selectedNode.value && isContainer(selectedNode.value))
         ? selectedId.value
         : screenId.value;
+    const spec = widgetSpec(type);
+    const patchFrame = frame
+      ? {
+          x: Math.max(0, Math.round(frame.x)),
+          y: Math.max(0, Math.round(frame.y)),
+          w: spec?.defaultFrame.w ?? 100,
+          h: spec?.defaultFrame.h ?? 40,
+        }
+      : undefined;
     const result = await desktop().addNode({
       screenId: screenId.value,
       parentId,
       type,
+      frame: patchFrame,
       _editor: editorContext(),
     });
     applyMutationResult(result);
     selectedId.value = result.node.id;
+    // BK: children of tabview belong to the designer-selected tab (layout.tabIndex / props.tabIndex).
+    const parentNode = findNode(loaded.value!.screens[screenId.value]!, parentId);
+    if (parentNode?.type === "tabview") {
+      const tabIndex = Number(
+        (parentNode.extraData as Record<string, unknown> | undefined)?.selectedTabIndex ?? 0,
+      );
+      await enqueueMutation(async () => {
+        const r = await desktop().updateNode({
+          screenId: screenId.value,
+          nodeId: result.node.id,
+          patch: { props: { tabIndex: Number.isFinite(tabIndex) ? tabIndex : 0 } },
+          _editor: editorContext(),
+        });
+        applyMutationResult(r);
+      });
+      selectedId.value = result.node.id;
+    }
+  }
+
+  async function addWidgetAt(type: string, frame: { x: number; y: number }) {
+    await addWidget(type, frame);
+  }
+
+  async function addCustomWidget(customId: string, frame?: { x: number; y: number }) {
+    if (!loaded.value) return;
+    const parentId =
+      selectedNode.value?.type === "screen" || (selectedNode.value && isContainer(selectedNode.value))
+        ? selectedId.value
+        : screenId.value;
+    const def = loaded.value.project.customWidgets?.find((c) => c.id === customId);
+    const patchFrame = frame
+      ? {
+          x: Math.max(0, Math.round(frame.x)),
+          y: Math.max(0, Math.round(frame.y)),
+          w: def?.root.frame.w,
+          h: def?.root.frame.h,
+        }
+      : undefined;
+    const result = await desktop().addCustomWidget({
+      screenId: screenId.value,
+      parentId,
+      customId,
+      frame: patchFrame,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    selectedId.value = result.node.id;
+  }
+
+  async function saveNodeAsCustomWidget(nodeId: string, name: string) {
+    if (!loaded.value || nodeId === screenId.value) return false;
+    const result = await desktop().saveAsCustomWidget({
+      screenId: screenId.value,
+      nodeId,
+      name: name.trim() || undefined,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    statusLine.value = `已保存自定义控件「${result.customWidget.name}」`;
+    return true;
+  }
+
+  async function importImages() {
+    const paths = await desktop().openImageFiles();
+    if (!paths.length) return;
+    const result = await desktop().importImages({
+      paths,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    appendLog("assets", "info", `已导入 ${paths.length} 张图片`);
+  }
+
+  async function importFonts() {
+    const paths = await desktop().openFontFiles();
+    if (!paths.length) return;
+    const result = await desktop().importFonts({
+      paths,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    appendLog("assets", "info", `已导入 ${paths.length} 个字体`);
   }
 
   async function removeSelected() {
@@ -562,6 +1192,24 @@ export const useProjectStore = defineStore("project", () => {
     applyMutationResult(result);
   }
 
+  async function alignSelection(mode: string) {
+    if (!loaded.value) return;
+    const ids =
+      selectedIds.value.length > 0
+        ? selectedIds.value
+        : selectedId.value && selectedId.value !== screenId.value
+          ? [selectedId.value]
+          : [];
+    if (!ids.length) return;
+    const result = await desktop().alignNodes({
+      screenId: screenId.value,
+      nodeIds: ids,
+      mode,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+  }
+
   async function undo() {
     if (!canUndo.value || !loaded.value) return;
     const result: UndoRedoResult = await desktop().undo(editorContext());
@@ -625,6 +1273,7 @@ export const useProjectStore = defineStore("project", () => {
   async function generate(opts: { cleanGenerated?: boolean } = {}) {
     const preview = usePreviewStore();
     if (preview.busy) return;
+    await flushPendingEditor();
     preview.begin(opts.cleanGenerated ? "清理并生成代码" : "生成代码");
     const wasDirty = dirty.value;
     try {
@@ -634,6 +1283,12 @@ export const useProjectStore = defineStore("project", () => {
       if (result.ok) {
         noteAutoSaved(wasDirty, result.autoSaved);
         appendLog("generate", "info", `生成成功，共 ${result.filesWritten.length} 个文件`);
+        try {
+          const hot = await desktop().hotReloadPreview();
+          if (hot.ok) appendLog("preview", "info", hot.message ?? "已热替换常驻 IR 预览（FR-063）");
+        } catch {
+          /* no resident session */
+        }
       } else {
         appendLog("generate", "error", "生成失败");
       }
@@ -645,6 +1300,7 @@ export const useProjectStore = defineStore("project", () => {
   async function previewBuild() {
     const preview = usePreviewStore();
     if (preview.busy) return;
+    await flushPendingEditor();
     preview.begin("编译");
     beginBuildStream();
     const wasDirty = dirty.value;
@@ -673,10 +1329,15 @@ export const useProjectStore = defineStore("project", () => {
     preview.begin("模拟运行");
     beginBuildStream();
     try {
-      appendLog("preview", "info", "启动 SDL 模拟运行...");
+      const backend = loaded.value?.project.previewBackend ?? "sdl";
+      appendLog("preview", "info", backend === "wasm" ? "启动 Wasm 预览…" : "启动 SDL 模拟运行...");
       const result = await desktop().preview({ runOnly: true, skipGenerate: true });
       if (!result.ok) appendDiagnostics("preview", result.diagnostics);
       if (result.ok) {
+        if (backend === "wasm" && result.previewUrl) {
+          const ui = useUiStore();
+          ui.showWasmEmbed = true;
+        }
         appendLog(
           "preview",
           "info",
@@ -695,9 +1356,27 @@ export const useProjectStore = defineStore("project", () => {
     }
   }
 
+  async function prepareWasmEmbed(): Promise<{ ok: boolean; previewUrl?: string; error?: string }> {
+    if (!loaded.value) return { ok: false, error: "未打开工程" };
+    await flushPendingEditor();
+    appendLog("preview", "info", "准备 Wasm IR 嵌入预览（FR-064）…");
+    const result = await desktop().preview({
+      prepareOnly: true,
+      skipGenerate: false,
+      backend: "wasm",
+    });
+    appendDiagnostics("preview", result.diagnostics ?? []);
+    if (!result.ok || !result.previewUrl) {
+      return { ok: false, error: "Wasm IR 准备失败" };
+    }
+    appendLog("preview", "info", `Wasm IR 就绪：${result.session?.buildDir ?? ""}`);
+    return { ok: true, previewUrl: result.previewUrl };
+  }
+
   async function generateCompileAndRun() {
     const preview = usePreviewStore();
     if (preview.busy) return;
+    await flushPendingEditor();
     preview.begin("生成+编译+模拟运行");
     const t0 = performance.now();
     const wasDirty = dirty.value;
@@ -787,6 +1466,7 @@ export const useProjectStore = defineStore("project", () => {
 
   async function pack() {
     if (!loaded.value) return;
+    await flushPendingEditor();
     if (loaded.value.project.deliveryMode === "static_c") {
       appendLog("pack", "info", "当前为 static_c，未启用 A2 UI 包");
       statusLine.value = "未启用 A2";
@@ -816,38 +1496,82 @@ export const useProjectStore = defineStore("project", () => {
   }
 
   function isContainer(node: UiNode) {
-    return node.type === "screen" || node.type === "container" || node.type === "button";
+    return node.type === "screen" || node.type === "container" || node.type === "button" || node.type === "tabview" || node.type === "tileview" || node.type === "win" || node.type === "menu";
   }
 
   return {
     loaded,
     screenId,
     selectedId,
+    selectedIds,
     widgets,
     log,
+    flushPendingEditor,
     statusLine,
     logText,
     operationLogs,
     dirty,
     canUndo,
     canRedo,
+    aiTransactionPending,
+    aiChangeCount,
+    commitAiTransaction,
+    rollbackAiTransaction,
+    applyAiModelUpdate,
+    refreshAiTransactionState,
     currentScreen,
     selectedNode,
+    selectedParentSize,
+    imageAssets,
+    fontAssets,
+    colorLibrary,
+    styleThemes,
+    customWidgets,
+    i18nConfig,
+    animations,
     openHello,
     openDir,
     openPath,
+    importForgeui,
+    importFigma,
     revealProjectFolder,
     createNew,
     save,
+    fetchSnapshots,
+    restoreSnapshot,
+    createNamedSnapshot,
     updateMeta,
     select,
+    isSelected,
     switchScreen,
     patchSelected,
     patchSelectedStyle,
     patchDisplay,
+    setColorLibrary,
+    setStyleThemes,
+    setI18n,
+    setPreviewLocale,
+    setAnimations,
+    seedI18nFromProject,
+    exportI18nXliff,
+    importI18nXliff,
+    estimateMemory,
+    previewPackedUi,
+    packPreview,
+    packPreviewScreen,
+    setPackPreviewScreen,
+    clearPackPreview,
+    saveStyleTheme,
+    deleteStyleTheme,
+    applyStyleTheme,
     widgetSpec,
     setEvents,
     addWidget,
+    addWidgetAt,
+    addCustomWidget,
+    saveNodeAsCustomWidget,
+    importImages,
+    importFonts,
     removeSelected,
     addScreen,
     renameCurrentScreen,
@@ -863,12 +1587,14 @@ export const useProjectStore = defineStore("project", () => {
     toggleNodeLocked,
     removeNodeById,
     alignSelected,
+    alignSelection,
     undo,
     redo,
     clean,
     generate,
     previewBuild,
     previewRun,
+    prepareWasmEmbed,
     generateCompileAndRun,
     clearLogs,
     exportSdk,

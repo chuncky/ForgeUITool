@@ -28,6 +28,22 @@ npm run build && npm run dev -w @forgeui/designer
 npm run dev:ui -w @forgeui/designer
 ```
 
+## 发布包
+
+在仓库根目录一键生成 Windows 可分发安装/便携包：
+
+```bash
+npm run release
+```
+
+产物在 `release/`（portable exe、`win-unpacked/` 等）。可选参数见根目录 `scripts/pack-release.mjs`。
+
+验证已打包产物：
+
+```bash
+npm run smoke:release
+```
+
 ## 五区
 
 工具栏 / 控件库 / 画布 / 大纲 / 属性+事件

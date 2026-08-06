@@ -1,7 +1,7 @@
 <template>
   <li class="node-wrap">
-    <div class="row" :class="{ on: store.selectedId === node.id, hidden: node.hidden, locked: node.locked }">
-      <button type="button" class="main" @click.stop="store.select(node.id)">
+    <div class="row" :class="{ on: store.isSelected(node.id), hidden: node.hidden, locked: node.locked }">
+      <button type="button" class="main" @click.stop="onSelect">
         <span class="type">{{ node.type }}</span>
         <span class="name">{{ node.name || node.id }}</span>
       </button>
@@ -38,6 +38,10 @@ const emit = defineEmits<{
 }>();
 
 const store = useProjectStore();
+
+function onSelect(e: MouseEvent) {
+  store.select(props.node.id, { additive: e.ctrlKey || e.metaKey });
+}
 
 function onMenuClick(e: MouseEvent) {
   emit("menu", props.node, e.currentTarget as HTMLElement);

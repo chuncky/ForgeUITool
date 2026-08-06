@@ -27,8 +27,10 @@
             v-for="w in group.widgets"
             :key="w.type"
             class="tile"
+            draggable="true"
             :title="w.type"
             @click="store.addWidget(w.type)"
+            @dragstart="onDragStart($event, w.type)"
           >
             <span class="tile-icon" :data-icon="w.icon ?? w.type">{{ iconChar(w) }}</span>
             <span class="tile-label">{{ w.label["zh-CN"] || w.type }}</span>
@@ -38,9 +40,25 @@
       <p v-if="!visibleGroups.length" class="empty">无匹配控件</p>
     </div>
 
-    <div v-else class="custom-empty">
-      <p>暂无自定义控件</p>
-      <p class="hint">组合另存后将显示于此（V1 · FR-019）</p>
+    <div v-else class="custom-list">
+      <div v-if="store.customWidgets.length" class="tiles">
+        <button
+          v-for="cw in store.customWidgets"
+          :key="cw.id"
+          class="tile"
+          draggable="true"
+          :title="cw.id"
+          @click="store.addCustomWidget(cw.id)"
+          @dragstart="onCustomDragStart($event, cw.id)"
+        >
+          <span class="tile-icon">★</span>
+          <span class="tile-label">{{ cw.name }}</span>
+        </button>
+      </div>
+      <div v-else class="custom-empty">
+        <p>暂无自定义控件</p>
+        <p class="hint">在控件树 ⋯ 菜单选择「创建自定义控件」</p>
+      </div>
     </div>
   </section>
 </template>
@@ -49,6 +67,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useProjectStore } from "../stores/project";
 import type { WidgetMeta } from "../env";
+import { widgetIconChar } from "../utils/widget-icons";
 
 type TabId = "system" | "custom";
 
@@ -57,22 +76,18 @@ const tab = ref<TabId>("system");
 const query = ref("");
 const expanded = reactive<Record<string, boolean>>({});
 
-const ICON_CHARS: Record<string, string> = {
-  container: "▢",
-  label: "T",
-  button: "⬚",
-  image: "🖼",
-  slider: "─",
-  switch: "◑",
-  checkbox: "☑",
-  bar: "▬",
-  arc: "◔",
-  dropdown: "▾",
-  textarea: "¶",
-};
+function onDragStart(e: DragEvent, type: string) {
+  e.dataTransfer?.setData("application/x-forgeui-widget", type);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "copy";
+}
+
+function onCustomDragStart(e: DragEvent, customId: string) {
+  e.dataTransfer?.setData("application/x-forgeui-custom-widget", customId);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "copy";
+}
 
 function iconChar(w: WidgetMeta) {
-  return ICON_CHARS[w.icon ?? w.type] ?? w.type.slice(0, 1).toUpperCase();
+  return widgetIconChar(w.icon ?? w.type);
 }
 
 const visibleGroups = computed(() => {
@@ -277,6 +292,19 @@ watch(visibleGroups, ensureExpanded);
   text-align: center;
   color: var(--muted);
   font-size: 13px;
+}
+
+.custom-list {
+  overflow: auto;
+  padding: 8px 6px;
+  min-height: 0;
+}
+
+.custom-list .tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px 2px 8px;
 }
 
 .custom-empty .hint {

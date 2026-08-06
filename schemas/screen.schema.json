@@ -13,6 +13,8 @@
     "frame": { "$ref": "#/$defs/frame" },
     "props": { "type": "object" },
     "style": { "type": "object" },
+    "styleRef": { "type": "string", "minLength": 1 },
+    "extraData": { "type": "object" },
     "events": {
       "type": "array",
       "items": { "$ref": "#/$defs/event" }
@@ -34,7 +36,10 @@
         "y": { "type": "number" },
         "w": { "type": "number", "minimum": 0 },
         "h": { "type": "number", "minimum": 0 },
-        "zIndex": { "type": "integer" }
+        "zIndex": { "type": "integer" },
+        "anchorX": { "type": "integer", "enum": [0, 1, 2] },
+        "anchorY": { "type": "integer", "enum": [0, 1, 2] },
+        "rotation": { "type": "number", "minimum": 0, "maximum": 359 }
       }
     },
     "action": {
@@ -43,7 +48,15 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["CHANGE_SCREEN", "CALL_FUNCTION", "SET_PROP"]
+          "enum": [
+            "CHANGE_SCREEN",
+            "CALL_FUNCTION",
+            "SET_PROP",
+            "SWITCH_LANGUAGE",
+            "PLAY_ANIMATION",
+            "SET_VAR",
+            "TOGGLE_VAR"
+          ]
         },
         "target": { "type": "string" },
         "anim": { "type": "string" },
@@ -51,7 +64,10 @@
         "handler": { "type": "string" },
         "nodeId": { "type": "string" },
         "prop": { "type": "string" },
-        "value": {}
+        "value": {},
+        "locale": { "type": "string" },
+        "animationId": { "type": "string" },
+        "variableId": { "type": "string" }
       }
     },
     "event": {
@@ -82,6 +98,8 @@
         "frame": { "$ref": "#/$defs/frame" },
         "props": { "type": "object" },
         "style": { "type": "object" },
+        "styleRef": { "type": "string", "minLength": 1 },
+        "extraData": { "type": "object" },
         "events": {
           "type": "array",
           "items": { "$ref": "#/$defs/event" }
