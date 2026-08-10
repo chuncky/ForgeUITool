@@ -59,7 +59,4 @@ templates/**/out/
 
 # Note: do not blanket-ignore *.exe/*.dll — ref/ vendors ship binaries already tracked.
 
-# Product preview toolchain (synced via scripts/sync-xos-tools.mjs; packed by pack-release)
-xos-package/tools/win/w64devkit/
-xos-package/tools/win/cmake/
-xos-package/tools/win/sdl2/
+
