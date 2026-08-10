@@ -97,10 +97,10 @@ describe("label props vs BK (A+B+C + is_text_static)", () => {
     expect(chromeDots.whiteSpace).toBe("nowrap");
     expect(chromeDots.textOverflow).toBe("ellipsis");
     expect(chromeDots.overflow).toBe("hidden");
-    // BK default font ~14px; LVGL montserrat_14 line_height=16
-    expect(chromeWrap.fontSize).toBe("14px");
-    expect(String(chromeWrap.fontFamily)).toMatch(/Montserrat/);
-    expect(chromeWrap.lineHeight).toBe("16px");
+    // BK / product default font size 16; line_height montserrat table 16→18
+    expect(chromeWrap.fontSize).toBe("16px");
+    expect(String(chromeWrap.fontFamily)).toMatch(/SourceHanSansCN-Bold|YaHei|PingFang/i);
+    expect(chromeWrap.lineHeight).toBe("18px");
     expect(chrome({ text_font_size: 24 }).fontSize).toBe("24px");
     expect(chrome({ text_font_size: 24 }).lineHeight).toBe("27px");
     expect(chrome({ text_font_size: 14, text_line_space: 4 }).lineHeight).toBe("20px");

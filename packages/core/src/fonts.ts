@@ -147,3 +147,80 @@ export function mergeFontCharset(projectGlyphs: string, explicit?: string): stri
 export function importFontAssets(loaded: LoadedProject, sourcePaths: string[]): FontAsset[] {
   return sourcePaths.map((p) => importFontAsset(loaded, p));
 }
+
+export interface FontRefHit {
+  screenId: string;
+  nodeId: string;
+  path: string;
+}
+
+function walkStrings(value: unknown, visit: (s: string) => void): void {
+  if (typeof value === "string") {
+    visit(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) walkStrings(item, visit);
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const v of Object.values(value as Record<string, unknown>)) walkStrings(v, visit);
+  }
+}
+
+function walkNodes(node: Node, visit: (n: Node) => void): void {
+  visit(node);
+  for (const child of node.children ?? []) walkNodes(child, visit);
+}
+
+function matchesFontRef(s: string, fontId: string): boolean {
+  const t = s.trim();
+  if (t === fontId) return true;
+  if (t === `@${fontId}`) return true;
+  if (t.startsWith("@") && t.slice(1) === fontId) return true;
+  return false;
+}
+
+export function listFontReferences(loaded: LoadedProject, fontId: string): FontRefHit[] {
+  const hits: FontRefHit[] = [];
+  for (const [screenId, screen] of loaded.screens) {
+    walkNodes(screen, (node) => {
+      walkStrings({ props: node.props, style: node.style, extraData: node.extraData }, (s) => {
+        if (matchesFontRef(s, fontId)) hits.push({ screenId, nodeId: node.id, path: s });
+      });
+    });
+  }
+  return hits;
+}
+
+export function countFontReferences(loaded: LoadedProject, fontId: string): number {
+  return listFontReferences(loaded, fontId).length;
+}
+
+export function deleteFontAsset(loaded: LoadedProject, fontId: string): void {
+  const refs = listFontReferences(loaded, fontId);
+  if (refs.length > 0) {
+    const sample = refs
+      .slice(0, 3)
+      .map((r) => `${r.screenId}/${r.nodeId}`)
+      .join(", ");
+    throw new ForgeError(
+      ErrorCodes.E_SEM_001,
+      `font is referenced (${refs.length}): ${sample}${refs.length > 3 ? "…" : ""}`,
+    );
+  }
+  ensureAssets(loaded.project);
+  const fonts = normalizeFontAssets(loaded.project);
+  const hit = fonts.find((f) => f.id === fontId);
+  loaded.project.assets!.fonts = (loaded.project.assets!.fonts ?? []).filter((item) => {
+    if (typeof item === "string") {
+      const base = path.basename(item, path.extname(item));
+      return base !== fontId;
+    }
+    return (item as FontAsset).id !== fontId;
+  });
+  if (hit) {
+    const abs = path.join(loaded.root, ...hit.path.split("/"));
+    if (fs.existsSync(abs)) fs.unlinkSync(abs);
+  }
+}

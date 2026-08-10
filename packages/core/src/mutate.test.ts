@@ -8,6 +8,7 @@ import {
   alignNodeToNeighbors,
   duplicateNode,
   duplicateScreen,
+  moveNode,
   moveNodeOrder,
   openProject,
   reorderScreen,
@@ -55,7 +56,7 @@ describe("core mutate", () => {
     updateNodeProps(loaded, "home", "btn_next", { frame: { x: 22, y: 248 } });
     alignNodeToNeighbors(loaded, "home", "btn_next", 8);
     const btn = loaded.screens.get("home")!.children.find((c) => c.id === "btn_next");
-    expect(btn?.frame.x).toBe(20);
+    expect(btn?.frame.x).toBe(24);
   });
 
   it("updates project meta", () => {
@@ -119,5 +120,37 @@ describe("core mutate", () => {
     const label = home.children.find((c) => c.id === "lbl_title");
     expect(label?.hidden).toBe(true);
     expect(label?.locked).toBe(true);
+  });
+
+  it("moveNode reorders siblings and reparents into container", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-move-"));
+    copyDir(templateRoot, tmp);
+    const loaded = openProject(tmp);
+    const home = loaded.screens.get("home")!;
+    const box = addChildNode(loaded, "home", "home", "container", { frame: { x: 0, y: 0, w: 200, h: 200 } });
+    const a = addChildNode(loaded, "home", "home", "label", { frame: { x: 10, y: 10, w: 40, h: 20 } });
+    const b = addChildNode(loaded, "home", "home", "label", { frame: { x: 10, y: 40, w: 40, h: 20 } });
+
+    moveNode(loaded, "home", b.id, "home", 0);
+    expect(home.children[0]?.id).toBe(b.id);
+
+    moveNode(loaded, "home", a.id, box.id, 0);
+    expect(home.children.some((c) => c.id === a.id)).toBe(false);
+    expect(box.children[0]?.id).toBe(a.id);
+  });
+
+  it("moveNode rejects non-container parent, cycles, and button parent", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-move-rej-"));
+    copyDir(templateRoot, tmp);
+    const loaded = openProject(tmp);
+    const box = addChildNode(loaded, "home", "home", "container", { frame: { x: 0, y: 0, w: 200, h: 200 } });
+    const nested = addChildNode(loaded, "home", box.id, "container", { frame: { x: 0, y: 0, w: 80, h: 80 } });
+    const btn = addChildNode(loaded, "home", "home", "button");
+    const child = addChildNode(loaded, "home", box.id, "label");
+
+    expect(() => moveNode(loaded, "home", child.id, btn.id, 0)).toThrow(/not a container/);
+    expect(() => addChildNode(loaded, "home", btn.id, "label")).toThrow(/not a container/);
+    expect(() => moveNode(loaded, "home", box.id, nested.id, 0)).toThrow(/descendant/);
+    expect(() => moveNode(loaded, "home", box.id, box.id, 0)).toThrow(/itself/);
   });
 });

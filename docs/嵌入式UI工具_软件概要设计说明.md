@@ -3,8 +3,9 @@
 > **文档类型：** 软件概要设计（HLD）  
 > **产品暂名：** ForgeUI Kit（可替换）  
 > **板端验收机型（非工具模型字段）：** qm10xd / qm10xv / qm10xh  
-> **版本：** V2.15  
-> **日期：** 2026-08-04  
+> **版本：** V2.16  
+> **日期：** 2026-08-07  
+> **V2.16：** 控件树拖拽改父（FR-013a / `moveNode`）；可作父仅 `isContainer`（不含 button）；与需求 V2.27 / 详设 V1.31 对齐。  
 > **V2.15：** FR-016e 收口：画布资源须经 `assetDataUrl` 真加载；字号/字体/背景图实际可见（需求 V2.26）。  
 > **V2.14：** 启动页整行冷青蓝立体标识（需求 V2.23 / FR-011c）；PageTreePanel 页面列表。  
 > **V2.13：** FR-016d 控件属性 ↔ LVGL API（注册表 `lvglPropApis` + CodeGen 专用发射）；需求 V2.22。  
@@ -342,7 +343,7 @@ ui_package/
 |--------|--------------|--------|
 | Workspace | `open` / `create` / `save` / `close` | 全部 |
 | Query | `getProjectMeta` / `getScreen` / `listWidgets` / `getNode` | 全部 |
-| Mutate | `updateNode` / `addNode` / `removeNode` / `setEvents` / … | GUI、MCP、Importer |
+| Mutate | `updateNode` / `addNode` / `removeNode` / `moveNode` / `setEvents` / … | GUI、MCP、Importer |
 | Validate | `validate()` → 诊断列表；非 0 语义对齐 CLI | CLI、CI、保存前 |
 | Pipeline | `applyMutation` → validate →（可选）notifyViews | GUI、MCP |
 | Generate | `generate(A1)` / `pack(A2)` 委托交付层 | GUI、CLI |
@@ -507,7 +508,7 @@ App 壳层最底行 `.foot`：阶段摘要 + LVGL/平台版本（无重复「收
 | 规则 | 说明 |
 |------|------|
 | 控件库开关 | 顶栏「控件库」**仅**切换 **WidgetLibraryPanel**；**页面与控件树**、属性、事件 **不受其影响**（FR-010a） |
-| 页面/控件树 | **PageTreePanel**：页面列表 + **控件树**；⋯ **FloatingPanelMenu** 悬浮菜单（FR-011a/b、FR-013a/b）；启动页整行冷青蓝立体样式（FR-011c） |
+| 页面/控件树 | **PageTreePanel**：页面列表 + **控件树**；⋯ **FloatingPanelMenu** 悬浮菜单（FR-011a/b、FR-013a/b）；启动页整行冷青蓝立体样式（FR-011c）；**树内拖拽**同级排序/改父（`moveNode`；仅容器可作父，**不含 button**） |
 | 写回 | 所有编辑 → Project Model API（与 CLI/MCP 同源） |
 | 画布 | 近似渲染；**像素验收不靠 DOM**（FR-021、C-002）；但 chrome **必须真出背景图/字号**（FR-016e） |
 | **画布 chrome** | 标尺+屏区高亮、设备框、舞台网格（默认开）、缩放+「视图」、指针坐标（默认开）；**无滚动条**；**滚轮缩放**；**左键拖空白区平移**（FR-021a～d，**P0**）；资源经 `assetDataUrl` 加载 |

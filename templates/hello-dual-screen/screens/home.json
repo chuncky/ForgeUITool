@@ -13,7 +13,15 @@
   "style": {
     "main": {
       "default": {
-        "bg_color": "#102a43"
+        "bg_color": "#102a43ff",
+        "bg_opacity": 255,
+        "text_opacity": 255,
+        "border_opacity": 255,
+        "shadow_opacity": 255,
+        "outline_opacity": 255,
+        "bg_img_opacity": 255,
+        "text_font": "@SourceHanSansCN-Bold",
+        "text_font_size": 16
       }
     }
   },
@@ -31,12 +39,23 @@
       },
       "props": {
         "text": "Hello ForgeUI",
-        "align": "left"
+        "is_text_static": false,
+        "long_mode": "WRAP"
       },
       "style": {
         "main": {
           "default": {
-            "text_color": "#F0F4F8"
+            "text_font": "@SourceHanSansCN-Bold",
+            "text_font_size": 16,
+            "bg_opacity": 0,
+            "text_opacity": 255,
+            "border_opacity": 255,
+            "shadow_opacity": 255,
+            "outline_opacity": 255,
+            "bg_img_opacity": 255,
+            "bg_color": "#ffffff00",
+            "text_color": "#F0F4F8ff",
+            "text_align": "left"
           }
         }
       },
@@ -54,9 +73,27 @@
         "h": 48
       },
       "props": {
-        "text": "Next"
+        "text": "Next",
+        "long_mode": "WRAP"
       },
-      "style": {},
+      "style": {
+        "main": {
+          "default": {
+            "text_font": "@SourceHanSansCN-Bold",
+            "text_font_size": 16,
+            "bg_opacity": 255,
+            "text_opacity": 255,
+            "border_opacity": 255,
+            "shadow_opacity": 255,
+            "outline_opacity": 255,
+            "bg_img_opacity": 255,
+            "bg_color": "#2196F3ff",
+            "text_color": "#ffffffff",
+            "radius": 8,
+            "text_align": "center"
+          }
+        }
+      },
       "events": [
         {
           "id": "evt_btn_next_click",
@@ -76,39 +113,6 @@
         }
       ],
       "children": []
-    },
-    {
-      "type": "container",
-      "id": "container_1",
-      "name": "容器",
-      "frame": {
-        "x": 20,
-        "y": 36,
-        "w": 100,
-        "h": 100
-      },
-      "props": {},
-      "style": {},
-      "events": [],
-      "children": [
-        {
-          "type": "button",
-          "id": "button_1",
-          "name": "按钮",
-          "frame": {
-            "x": 299,
-            "y": 23,
-            "w": 100,
-            "h": 40
-          },
-          "props": {
-            "text": "Button"
-          },
-          "style": {},
-          "events": [],
-          "children": []
-        }
-      ]
     }
   ]
 }

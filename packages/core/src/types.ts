@@ -80,6 +80,14 @@ export interface NamedColor {
   value: string;
 }
 
+/** Color-library palette theme (BK 颜色库「主题」Tab) — NOT style library. */
+export interface ColorPaletteTheme {
+  id: string;
+  name: string;
+  colors: NamedColor[];
+  createdAt?: string;
+}
+
 export interface NamedStyleTheme {
   id: string;
   name: string;
@@ -122,7 +130,9 @@ export interface ProjectDocument {
   assets?: { images?: unknown[]; fonts?: unknown[] };
   /** FR-018 named palette colors; style values may reference as @id */
   colors?: NamedColor[];
-  /** FR-018 saved Part+State style snapshots */
+  /** FR-018 color-library palette themes (BK 颜色库「主题」); not style templates */
+  colorThemes?: ColorPaletteTheme[];
+  /** FR-018 saved Part+State style snapshots (属性面板样式库) */
   themes?: NamedStyleTheme[];
   /** FR-019 user-saved composite widgets */
   customWidgets?: CustomWidgetDefinition[];

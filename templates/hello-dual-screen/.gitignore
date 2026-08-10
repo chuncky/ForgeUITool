@@ -3,6 +3,10 @@
 .forge/
 **/preview-build/out/
 
+# Builtin TTFs are copied from xos-package/res/ttf via ensureBuiltinFontsInProject
+assets/fonts/*.ttf
+assets/fonts/*.otf
+
 # CMake / MSVC build trees
 **/CMakeCache.txt
 **/CMakeFiles/

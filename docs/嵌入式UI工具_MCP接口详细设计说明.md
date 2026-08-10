@@ -2,9 +2,10 @@
 
 > **文档类型：** 模块详细设计（MCP / AI 设计子系统）  
 > **产品暂名：** ForgeUI Kit  
-> **版本：** V1.1  
-> **日期：** 2026-08-03  
+> **版本：** V1.2  
+> **日期：** 2026-08-07  
 > **交付分期：** V2（差异化）；MVP 仅接口 + Bridge stub + Skill 骨架  
+> **V1.2：** `add_node` / `add_node_tree` / `move_node` 的父须 `WidgetSpec.isContainer`（`screen`/`container`/`tabview`/`tileview`/`win`/`menu`；**不含 button**）；与设计器面板添加、控件树拖拽同源。  
 > **V1.1：** 说明 GUI 样式 `bg_image` 资源选择缺口不影响 MCP：AI 仍经 `batch_update` / `styleKeys` 写路径；`forgeui_create_image_asset` 负责导入。GUI 对齐见属性面板详设 §6.4 / FR-016c。  
 > **对标竞品：** Beken LVGL UI Designer 2.x MCP（`ref/beken/lvgl_ui_designer_2.0.3/resources/mcp/`、`resources/ai-skill/`）  
 > **上游依据：** 《设计需求文档》V2.4 FR-072、AR-020～022、NFR-004；《软件概要设计说明》V1.7 §5.1/§5.11；《软件详细设计说明》V1.2 §11.1  
@@ -378,7 +379,7 @@ interface UpdateNodeParams {
 interface AddNodeTreeParams {
   aiWorkspacePath: string;
   screenId?: string;
-  parentId?: string | null;         // null = screen 根下
+  parentId?: string | null;         // null = screen 根下；非 null 时目标须 isContainer（不含 button）
   ref?: string;                     // batch 内后续 nodeRef
   tree: NodeTreeInput;
 }
@@ -452,9 +453,11 @@ interface GenerateParams {
 | `remove_node` | `removeNode` |
 | `update_node_property` | `updateNode` props 单键 |
 | `update_node_style` | `updateNode` style 单条 |
-| `move_node` | `moveNode` |
+| `move_node` | `moveNode`（`newParentId`+`index`；新父须 `isContainer`；禁成环；button 不可作父） |
 | `update_node` | 粗粒度，同 §5.5 |
-| `add_node_tree` | 多次 `addNode` 事务 |
+| `add_node_tree` | 多次 `addNode` 事务（树内每一层父同样须 `isContainer`） |
+
+**父容器约束（与设计器一致）：** `parentId` / `parentRef` 指向的节点必须 `isContainer === true`。当前可作父：`screen`、`container`、`tabview`、`tileview`、`win`、`menu`。**`button` 不是容器**——按钮文案用 `props.text`，勿把 label 等挂为 button 子节点。
 
 **命名规则（对齐 Beken component-naming）：**
 
@@ -622,21 +625,23 @@ resources/ai-skill/forgeui-lvgl-designer/
 
 ### 11.1 入口（已有 §9.6 `tb.ai`）
 
-| 步骤 | 行为 |
-|------|------|
-| 1 | 检测 Cursor/Codex/TRAE 是否安装 |
-| 2 | 确保 MCP + Skill 版本 |
-| 3 | 创建/更新 `.forge-ai/` |
-| 4 | `shell.openExternal` 或 `cursor .forge-ai` |
-| 5 | Bridge 状态设为 READY |
+| 步骤 | 行为 | 实现状态（V1.31） |
+|------|------|-------------------|
+| 1 | 检测 Cursor/Codex/TRAE 是否安装 | ✅ `ai-hosts.mjs` / `ai:listHosts` |
+| 2 | 确保 MCP + Skill 版本 | ✅ Cursor 自动安装；其它宿主「去设置」 |
+| 3 | 创建/更新 `.forge-ai/` | ✅ |
+| 4 | 启动 Cursor 打开 `.forge-ai` | ✅ `ai:launchHost` |
+| 5 | Bridge 状态 READY；NFR-004 启用开关 | ✅ `ai:setEnabled` / 设置页 |
 
-### 11.2 IPC（Main 新增）
+### 11.2 IPC（Main）
 
 | 通道 | 用途 |
 |------|------|
-| `ai:getBridgeStatus` | 设置页展示 |
-| `ai:installMcp` / `ai:installSkill` | 写全局配置 |
-| `ai:onTransactionSaved` | Renderer 清除 pending UI |
+| `ai:getPanelState` | 诊断面板 |
+| `ai:listHosts` / `ai:installEnv` / `ai:launchHost` | 宿主检测、装 MCP/Skill、启动 |
+| `ai:setEnabled` | NFR-004 启用开关同步到 Main |
+| `ai:commitTransaction` / `ai:rollbackTransaction` | 事务保存/撤销 |
+| `ai:onTransactionSaved` / `ai:modelUpdated` | Renderer 刷新 |
 
 Bridge 本身跑在 **Main**（与 spawn 预览同级），避免 Renderer 暴露 HTTP。
 
@@ -673,7 +678,7 @@ export function registerTools(server: McpServer) {
 | 绑定地址 | Bridge 仅 `127.0.0.1` |
 | 鉴权 | 首版无 token；依赖本机 + aiWorkspacePath 校验；V2+ 可选 `FORGEUI_BRIDGE_TOKEN` |
 | 路径 | 拒绝 `aiWorkspacePath` 路径穿越；`imagePath` 必须在用户可读目录 |
-| 授权 | 设置页「启用 AI 设计」开关；默认关（NFR-004） |
+| 授权 | 从「AI设计」启动并安装 MCP 即视为授权（对齐 Beken 自动检测，无单独启用开关） |
 | 审计 | `.forge/ai-audit.log` 记录 operation 摘要（无 prompt 正文） |
 
 ---

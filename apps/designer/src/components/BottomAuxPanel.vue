@@ -25,8 +25,12 @@
 
       <div v-else-if="ui.bottomAuxTab === 'assets'" class="pane assets">
         <div class="pane-actions">
-          <button type="button" @click="ui.showAssets = true">打开资源管理</button>
+          <button type="button" @click="ui.openAssets()">打开资源管理</button>
+          <button type="button" @click="ui.openAssets('images')">图片</button>
+          <button type="button" @click="ui.openAssets('fonts')">字体</button>
+          <button type="button" @click="ui.openAssets('i18n')">多语言</button>
           <button type="button" @click="store.importImages()">导入图片</button>
+          <button type="button" @click="store.importFonts()">导入字体</button>
         </div>
         <ul v-if="store.imageAssets.length" class="asset-list">
           <li v-for="img in store.imageAssets" :key="img.id || img.path">
@@ -35,6 +39,12 @@
           </li>
         </ul>
         <p v-else class="hint">暂无图片资源。可导入或从顶栏「资源管理」添加。</p>
+        <ul v-if="store.fontAssets.length" class="asset-list">
+          <li v-for="f in store.fontAssets" :key="f.id || f.path">
+            <span class="name">{{ f.id }}</span>
+            <span class="path">{{ f.path }}</span>
+          </li>
+        </ul>
       </div>
 
       <div v-else class="pane config">

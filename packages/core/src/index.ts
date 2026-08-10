@@ -8,6 +8,7 @@ export type { Frame,
   LoadedProject,
   NamedColor,
   NamedStyleTheme,
+  ColorPaletteTheme,
   CustomWidgetDefinition,
 } from "./types.js";
 export { anchorPoint, normalizeAnchor, reanchorFrame, alignFrameToParent } from "./frame-anchor.js";
@@ -20,6 +21,8 @@ export {
   colorRefId,
   formatColorRef,
   resolveColorValue,
+  flattenNamedColors,
+  collectColorIds,
   slugThemeId,
   uniqueId,
   applyThemePropsToStyle,
@@ -30,20 +33,47 @@ export { validateProjectDir } from "./validate.js";
 export { openProject, saveProject, createProject } from "./workspace.js";
 export type { CreateProjectOptions } from "./workspace.js";
 export {
+  BUILTIN_FONTS,
+  DEFAULT_FONT_STYLE_PROPS,
+  DEFAULT_TEXT_FONT_ID,
+  DEFAULT_TEXT_FONT_SIZE,
+  defaultTextFontRef,
+} from "./builtin-fonts.js";
+export type { BuiltinFontDef } from "./builtin-fonts.js";
+export {
+  ensureBuiltinFontsInProject,
+  resolveBuiltinFontsDir,
+} from "./builtin-fonts-fs.js";
+export {
+  DEFAULT_OPACITY_STYLE_PROPS,
+  DEFAULT_STYLE_OPACITY,
+  OPACITY_STYLE_KEYS,
+  PANEL_HIDDEN_OPACITY_KEYS,
+  isOpacityStyleKey,
+  opacityToCss01,
+  wrapOpacity255,
+} from "./opacity.js";
+export type { OpacityStyleKey } from "./opacity.js";
+export {
   createSnapshot,
   listSnapshots,
+  loadSnapshotPreview,
+  deleteSnapshot,
   restoreSnapshot,
   saveProjectWithSnapshot,
   projectHistoryDir,
   snapshotTimestampId,
+  formatSnapshotSize,
+  MAX_SNAPSHOTS,
 } from "./project-snapshot.js";
-export type { SnapshotMeta } from "./project-snapshot.js";
+export type { SnapshotMeta, SnapshotPreview } from "./project-snapshot.js";
 export { buildIR, symbolFor } from "./ir.js";
 export type { ProjectIR, ScreenIR, WidgetIR } from "./ir.js";
-export { listWidgetSpecs, listPaletteWidgetSpecs, groupPaletteWidgetsByCategory, filterPaletteWidgets, getWidgetSpec, isKnownWidgetType, WIDGET_CATEGORY_ORDER, WIDGET_CATEGORY_LABELS } from "./widgets.js";
+export { listWidgetSpecs, listPaletteWidgetSpecs, groupPaletteWidgetsByCategory, filterPaletteWidgets, getWidgetSpec, isKnownWidgetType, WIDGET_CATEGORY_ORDER, WIDGET_CATEGORY_LABELS, LVGL_THEME_LIGHT, STYLE_SEED_CARD, STYLE_SEED_BTN_PRIMARY, STYLE_SEED_SCR } from "./widgets.js";
 export type { WidgetSpec, WidgetCategoryId, WidgetCategoryGroup, PropSpec, PropSpecType, ExtraDataEditorKind } from "./widgets.js";
 export {
   findNode,
+  clampFrameWithinParent,
   updateNodeProps,
   setNodeEvents,
   addChildNode,
@@ -57,6 +87,7 @@ export {
   setDefaultScreen,
   duplicateNode,
   moveNodeOrder,
+  moveNode,
   setNodeFlags,
   alignNodeToNeighbors,
   updateProjectMeta,
@@ -78,8 +109,12 @@ export {
   importImageAsset,
   importImageAssets,
   normalizeImageAssets,
+  deleteImageAsset,
+  countImageReferences,
+  listImageReferences,
+  pruneOrphanImages,
 } from "./assets.js";
-export type { ImageAsset } from "./assets.js";
+export type { ImageAsset, AssetRefHit } from "./assets.js";
 export {
   importFontAsset,
   importFontAssets,
@@ -87,8 +122,11 @@ export {
   collectGlyphsFromNode,
   collectProjectGlyphs,
   mergeFontCharset,
+  deleteFontAsset,
+  countFontReferences,
+  listFontReferences,
 } from "./fonts.js";
-export type { FontAsset } from "./fonts.js";
+export type { FontAsset, FontRefHit } from "./fonts.js";
 export {
   listCustomWidgets,
   saveNodeAsCustomWidget,

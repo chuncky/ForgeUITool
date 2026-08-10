@@ -6,6 +6,8 @@ import {
   addChildNode,
   collectProjectGlyphs,
   createProject,
+  deleteFontAsset,
+  countFontReferences,
   importFontAsset,
   mergeFontCharset,
   openProject,
@@ -35,5 +37,23 @@ describe("fonts FR-041", () => {
     expect(asset.path).toMatch(/^assets\/fonts\//);
     expect(asset.size).toBe(20);
     expect(fs.existsSync(path.join(tmp, asset.path))).toBe(true);
+  });
+
+  it("deleteFontAsset refuses when referenced and deletes when free", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-font-d-"));
+    createProject({ root: tmp, name: "fd", fromTemplate: "blank" });
+    const src = path.join(tmp, "ui.ttf");
+    fs.writeFileSync(src, "dummy-ttf");
+    const loaded = openProject(tmp);
+    const asset = importFontAsset(loaded, src);
+    expect(countFontReferences(loaded, asset.id)).toBe(0);
+    const sid = loaded.project.defaultScreen;
+    const root = loaded.screens.get(sid)!;
+    root.style = { ...(root.style ?? {}), text_font: `@${asset.id}` };
+    expect(countFontReferences(loaded, asset.id)).toBeGreaterThan(0);
+    expect(() => deleteFontAsset(loaded, asset.id)).toThrow(/referenced/);
+    delete root.style!.text_font;
+    deleteFontAsset(loaded, asset.id);
+    expect(fs.existsSync(path.join(tmp, asset.path))).toBe(false);
   });
 });

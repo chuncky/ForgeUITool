@@ -25,6 +25,17 @@ import {
   isForgeAiWorkspaceReady,
   pingBridge,
 } from "./ai-workspace.mjs";
+import {
+  clearCustomAiToolPath,
+  detectAiHosts,
+  getCursorEnvStatus,
+  getHostEnvStatus,
+  installHostEnv,
+  launchAiDesign,
+  setAiToolsUserDataPath,
+  setCustomAiToolPath,
+  uninstallHostEnv,
+} from "./ai-hosts.mjs";
 import { readProjectAssetDataUrl } from "./asset-data-url.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -70,7 +81,12 @@ async function api() {
 
 let apiPromise = null;
 function getApi() {
-  if (!apiPromise) apiPromise = api();
+  if (!apiPromise) {
+    apiPromise = api().then((a) => {
+      cachedCore = a.core;
+      return a;
+    });
+  }
   return apiPromise;
 }
 
@@ -80,6 +96,8 @@ let current = null;
 let bridgePreviewBusy = false;
 /** @type {ReturnType<createForgeUiBridge> | null} */
 let forgeBridge = null;
+/** Cached core after first getApi — used for sync AI auto-commit on manual edits. */
+let cachedCore = null;
 
 const BRIDGE_WRITE_TOOLS = new Set([
   "forgeui_batch_update",
@@ -174,6 +192,15 @@ function serializeLoaded(loaded) {
   };
 }
 
+/** Ensure shipped TTFs are in the open project (panel / canvas / codegen). */
+function ensureCurrentFonts(core) {
+  if (!current) return;
+  const fontsDir = core.resolveBuiltinFontsDir(repoRoot);
+  if (core.ensureBuiltinFontsInProject(current, fontsDir)) {
+    core.saveProject(current);
+  }
+}
+
 function hydrateLoaded(payload) {
   const clone = JSON.parse(JSON.stringify(payload));
   return {
@@ -184,6 +211,14 @@ function hydrateLoaded(payload) {
 }
 
 function withHistory(editor, skipHistory) {
+  // Beken: continuing manual edit auto-saves pending AI changes.
+  if (getAiTransactionState().pending && current && cachedCore) {
+    commitAiTransaction((loaded) => {
+      cachedCore.saveProject(loaded);
+      clearProjectHistory();
+    }, current);
+    broadcastModelUpdate();
+  }
   if (!skipHistory && editor?.screenId) {
     recordEditorHistory(serializeLoaded, current, editor);
   }
@@ -297,6 +332,7 @@ ipcMain.handle("project:open", async (_e, projectDir) => {
   const { core } = await getApi();
   clearAiTransaction();
   current = core.openProject(projectDir);
+  ensureCurrentFonts(core);
   clearProjectHistory();
   return serializeLoaded(current);
 });
@@ -305,6 +341,7 @@ ipcMain.handle("project:openHello", async () => {
   const { core } = await getApi();
   const hello = path.join(repoRoot, "templates/hello-dual-screen");
   current = core.openProject(hello);
+  ensureCurrentFonts(core);
   clearProjectHistory();
   return serializeLoaded(current);
 });
@@ -334,6 +371,7 @@ ipcMain.handle("project:importFigma", async () => {
     return { ok: false, diagnostics: result.diagnostics ?? [] };
   }
   current = core.openProject(dest);
+  ensureCurrentFonts(core);
   clearProjectHistory();
   return {
     ok: true,
@@ -366,6 +404,7 @@ ipcMain.handle("project:importForgeui", async () => {
     return { ok: false, diagnostics: result.diagnostics ?? [] };
   }
   current = core.openProject(dest);
+  ensureCurrentFonts(core);
   clearProjectHistory();
   return {
     ok: true,
@@ -392,6 +431,7 @@ ipcMain.handle("project:create", async (_e, opts) => {
     fromTemplate: opts.fromTemplate || "blank",
     deliveryMode: opts.deliveryMode || "both",
   });
+  ensureCurrentFonts(core);
   clearProjectHistory();
   return serializeLoaded(current);
 });
@@ -402,6 +442,19 @@ ipcMain.handle("project:listSnapshots", async () => {
   const { core } = await getApi();
   if (!current) throw new Error("No project open");
   return core.listSnapshots(current.root);
+});
+
+ipcMain.handle("project:getSnapshotPreview", async (_e, snapshotId) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  return core.loadSnapshotPreview(current.root, String(snapshotId ?? ""));
+});
+
+ipcMain.handle("project:deleteSnapshot", async (_e, snapshotId) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  core.deleteSnapshot(current.root, String(snapshotId ?? ""));
+  return { ok: true, list: core.listSnapshots(current.root) };
 });
 
 ipcMain.handle("project:createSnapshot", async (_e, label) => {
@@ -581,6 +634,30 @@ ipcMain.handle("project:importFonts", async (_e, { paths, _editor, skipHistory }
   return attachHistory({ loaded: serializeLoaded(current), imported });
 });
 
+ipcMain.handle("project:deleteImage", async (_e, { path: imagePath, _editor, skipHistory }) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  withHistory(_editor, skipHistory);
+  core.deleteImageAsset(current, imagePath);
+  return attachHistory({ loaded: serializeLoaded(current) });
+});
+
+ipcMain.handle("project:deleteFont", async (_e, { fontId, _editor, skipHistory }) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  withHistory(_editor, skipHistory);
+  core.deleteFontAsset(current, fontId);
+  return attachHistory({ loaded: serializeLoaded(current) });
+});
+
+ipcMain.handle("project:pruneOrphanImages", async (_e, { _editor, skipHistory } = {}) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  withHistory(_editor, skipHistory);
+  const removed = core.pruneOrphanImages(current);
+  return attachHistory({ loaded: serializeLoaded(current), removed });
+});
+
 ipcMain.handle("project:addNode", async (_e, { screenId, parentId, type, frame, _editor, skipHistory }) => {
   const { core } = await getApi();
   if (!current) throw new Error("No project open");
@@ -675,6 +752,14 @@ ipcMain.handle("project:moveNodeOrder", async (_e, { screenId, nodeId, where, _e
   if (!current) throw new Error("No project open");
   withHistory(_editor, skipHistory);
   core.moveNodeOrder(current, screenId, nodeId, where);
+  return attachHistory({ loaded: serializeLoaded(current) });
+});
+
+ipcMain.handle("project:moveNode", async (_e, { screenId, nodeId, newParentId, index, _editor, skipHistory }) => {
+  const { core } = await getApi();
+  if (!current) throw new Error("No project open");
+  withHistory(_editor, skipHistory);
+  core.moveNode(current, screenId, nodeId, newParentId ?? null, index ?? 0);
   return attachHistory({ loaded: serializeLoaded(current) });
 });
 
@@ -920,6 +1005,90 @@ ipcMain.handle("tool:packPreview", async () => {
 
 ipcMain.handle("ai:getTransactionState", () => getAiTransactionState());
 
+ipcMain.handle("ai:listHosts", async () => {
+  ensureBridge();
+  const hosts = await detectAiHosts();
+  const env = getCursorEnvStatus(repoRoot, { appVersion: app.getVersion() });
+  return { ok: true, hosts, cursorEnv: env, previewBusy: bridgePreviewBusy };
+});
+
+ipcMain.handle("ai:installEnv", async (_e, { host } = {}) => {
+  const hostId = host || "cursor";
+  const bridgePort = Number(process.env.FORGEUI_BRIDGE_PORT ?? 39201);
+  return installHostEnv(hostId, repoRoot, bridgePort, {
+    packaged: app.isPackaged,
+    execPath: process.execPath,
+    preferElectronAsNode: process.env.FORGEUI_MCP_ELECTRON_AS_NODE === "1",
+    appVersion: app.getVersion(),
+  });
+});
+
+ipcMain.handle("ai:uninstallEnv", async (_e, { host } = {}) => {
+  return uninstallHostEnv(host || "cursor");
+});
+
+ipcMain.handle("ai:setCustomPath", async (_e, { host, path: exePath } = {}) => {
+  const hostId = host || "cursor";
+  if (!exePath) {
+    clearCustomAiToolPath(hostId);
+    const hosts = await detectAiHosts();
+    return { ok: true, cleared: true, hosts };
+  }
+  const r = setCustomAiToolPath(hostId, exePath);
+  if (!r.ok) return r;
+  const hosts = await detectAiHosts();
+  return { ok: true, path: r.path, hosts };
+});
+
+ipcMain.handle("ai:pickCustomPath", async (e, { host } = {}) => {
+  const hostId = host || "cursor";
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const result = await dialog.showOpenDialog(win ?? undefined, {
+    title: `选择 ${hostId} 可执行文件`,
+    properties: ["openFile"],
+    filters: [
+      { name: "Executable", extensions: ["exe", "cmd", "bat"] },
+      { name: "All", extensions: ["*"] },
+    ],
+  });
+  if (result.canceled || !result.filePaths?.[0]) {
+    return { ok: false, canceled: true };
+  }
+  const r = setCustomAiToolPath(hostId, result.filePaths[0]);
+  if (!r.ok) return r;
+  const hosts = await detectAiHosts();
+  return { ok: true, path: r.path, hosts };
+});
+
+ipcMain.handle("ai:launchHost", async (_e, { host } = {}) => {
+  if (!current) return { ok: false, error: "No project open" };
+  if (bridgePreviewBusy) {
+    return { ok: false, error: "预览/编译进行中，请稍后再试" };
+  }
+  const hostId = host || "cursor";
+  // New AI round: auto-commit pending transaction (Beken behavior).
+  if (getAiTransactionState().pending && current) {
+    const { core } = await getApi();
+    commitAiTransaction((loaded) => {
+      core.saveProject(loaded);
+      clearProjectHistory();
+    }, current);
+    broadcastModelUpdate();
+  }
+  ensureBridge();
+  const bridgePort = Number(process.env.FORGEUI_BRIDGE_PORT ?? 39201);
+  return launchAiDesign({
+    host: hostId,
+    projectRoot: current.root,
+    repoRoot,
+    bridgePort,
+    packaged: app.isPackaged,
+    execPath: process.execPath,
+    appVersion: app.getVersion(),
+    openPathFallback: (p) => shell.openPath(p),
+  });
+});
+
 ipcMain.handle("ai:commitTransaction", async () => {
   const { core } = await getApi();
   if (!current) return { ok: false, error: "No project open" };
@@ -954,6 +1123,7 @@ ipcMain.handle("ai:getPanelState", async () => {
   const bridgePort = Number(process.env.FORGEUI_BRIDGE_PORT ?? 39201);
   const mcp = await distImport("packages/mcp/dist/index.js");
   const aiPath = current ? forgeAiWorkspacePath(current.root) : null;
+  const appVersion = app.getVersion();
   let bridgePing = null;
   try {
     bridgePing = await pingBridge(bridgePort);
@@ -969,15 +1139,26 @@ ipcMain.handle("ai:getPanelState", async () => {
     workspaceReady: current ? isForgeAiWorkspaceReady(current.root) : false,
     transaction: getAiTransactionState(),
     tools: mcp.listMcpTools(),
+    hosts: await detectAiHosts(),
+    cursorEnv: getCursorEnvStatus(repoRoot, { appVersion }),
+    hostEnvs: {
+      cursor: getCursorEnvStatus(repoRoot, { appVersion }),
+      codex: getHostEnvStatus("codex", { appVersion }),
+      trae: getHostEnvStatus("trae", { appVersion }),
+      "trae-cn": getHostEnvStatus("trae-cn", { appVersion }),
+    },
     mcpConfigJson: JSON.stringify(
       buildMcpConfigSnippet(repoRoot, bridgePort, {
         packaged: app.isPackaged,
         execPath: process.execPath,
+        preferElectronAsNode: process.env.FORGEUI_MCP_ELECTRON_AS_NODE === "1",
+        appVersion,
       }),
       null,
       2,
     ),
     bridgePing,
+    appVersion,
   };
 });
 
@@ -1003,6 +1184,7 @@ ipcMain.handle("ai:pingBridge", async () => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  setAiToolsUserDataPath(app.getPath("userData"));
   ensureBridge();
   createWindow();
   getApi().catch((e) => {

@@ -59,12 +59,20 @@
       <div class="stage" :class="{ grid: view.showGrid }">
         <div class="world" :style="worldStyle">
           <div class="screen pack-screen" :style="packScreenStyle">
-            <WidgetView
-              v-for="child in store.packPreviewScreen.children"
-              :key="child.id"
-              :node="child"
-              :editing-disabled="true"
-            />
+            <div class="screen-clip">
+              <div
+                v-if="packResolvedBg"
+                class="screen-bg-img"
+                aria-hidden="true"
+                :style="packBgImgLayerStyle"
+              />
+              <WidgetView
+                v-for="child in store.packPreviewScreen.children"
+                :key="child.id"
+                :node="child"
+                :editing-disabled="true"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -101,12 +109,20 @@
               @dragover.prevent="onDragOver"
               @drop.prevent="onDrop"
             >
-              <WidgetView
-                v-for="child in store.currentScreen.children"
-                :key="child.id"
-                :node="child"
-                :editing-disabled="preview.busy"
-              />
+              <div class="screen-clip">
+                <div
+                  v-if="screenResolvedBg"
+                  class="screen-bg-img"
+                  aria-hidden="true"
+                  :style="screenBgImgLayerStyle"
+                />
+                <WidgetView
+                  v-for="child in store.currentScreen.children"
+                  :key="child.id"
+                  :node="child"
+                  :editing-disabled="preview.busy"
+                />
+              </div>
             </div>
           </div>
           <div v-if="preview.busy" class="busy-overlay" aria-live="polite">
@@ -126,6 +142,9 @@ import { useProjectStore } from "../stores/project";
 import { usePreviewStore } from "../stores/preview";
 import { useCanvasViewStore } from "../stores/canvasView";
 import WidgetView from "./WidgetView.vue";
+import { resolveProjectAssetDataUrl } from "../utils/asset-url";
+import { buildFillBackground } from "../utils/canvas-chrome";
+import { opacityToCss01 } from "@forgeui/core/opacity";
 
 const store = useProjectStore();
 const preview = usePreviewStore();
@@ -137,6 +156,8 @@ const rulerVEl = ref<HTMLCanvasElement | null>(null);
 const viewMenuEl = ref<HTMLElement | null>(null);
 const isPanning = ref(false);
 const skipNextClick = ref(false);
+const screenResolvedBg = ref<string | null>(null);
+const packResolvedBg = ref<string | null>(null);
 
 const RULER = 22;
 const PAN_THRESHOLD = 3;
@@ -155,28 +176,117 @@ const displaySize = computed(() => {
   return { w: d?.width ?? 480, h: d?.height ?? 320 };
 });
 
+type ScreenStyleMain = {
+  bg_color?: string;
+  bg_grad_dir?: string;
+  bg_grad_color?: string;
+  bg_image?: string;
+  bg_img_opacity?: number;
+  bg_opacity?: number;
+};
+
+function screenMainDefault(style: unknown): ScreenStyleMain {
+  const s = style as { main?: { default?: ScreenStyleMain } } | undefined;
+  return s?.main?.default ?? {};
+}
+
+function screenFillStyle(def: ScreenStyleMain, hasBgImage: boolean) {
+  const { fill, isGradient } = buildFillBackground(def as Record<string, unknown>, {
+    colorFallback: "var(--screen)",
+  });
+  // With bg image layer: keep gradient on `background`; solid prefers backgroundColor
+  // so it cannot fight the image layer shorthand.
+  if (hasBgImage && !isGradient) {
+    return { backgroundColor: fill, background: undefined as string | undefined };
+  }
+  return { background: fill, backgroundColor: undefined as string | undefined };
+}
+
 const screenStyle = computed(() => {
   const d = displaySize.value;
-  const style = store.currentScreen?.style as { main?: { default?: { bg_color?: string } } };
+  const def = screenMainDefault(store.currentScreen?.style);
+  const fill = screenFillStyle(def, Boolean(screenResolvedBg.value));
   return {
     width: `${d.w}px`,
     height: `${d.h}px`,
-    background: style?.main?.default?.bg_color || "var(--screen)",
+    ...fill,
   };
 });
 
 const packScreenStyle = computed(() => {
   const d = store.loaded?.project.display;
   const doc = store.packPreviewScreen;
-  const style = doc?.style as { main?: { default?: { bg_color?: string } } } | undefined;
+  const def = screenMainDefault(doc?.style);
   const frame = doc?.frame;
+  const fill = screenFillStyle(def, Boolean(packResolvedBg.value));
   return {
     width: `${frame?.w ?? d?.width ?? 480}px`,
     height: `${frame?.h ?? d?.height ?? 320}px`,
-    background: style?.main?.default?.bg_color || "var(--screen)",
+    ...fill,
   };
 });
 
+const screenBgImgLayerStyle = computed(() => {
+  if (!screenResolvedBg.value) return {};
+  const def = screenMainDefault(store.currentScreen?.style);
+  const opa = opacityToCss01(def.bg_img_opacity) ?? 1;
+  return {
+    position: "absolute" as const,
+    inset: "0",
+    zIndex: 0,
+    pointerEvents: "none" as const,
+    backgroundImage: `url("${screenResolvedBg.value}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    opacity: opa,
+  };
+});
+
+const packBgImgLayerStyle = computed(() => {
+  if (!packResolvedBg.value) return {};
+  const def = screenMainDefault(store.packPreviewScreen?.style);
+  const opa = opacityToCss01(def.bg_img_opacity) ?? 1;
+  return {
+    position: "absolute" as const,
+    inset: "0",
+    zIndex: 0,
+    pointerEvents: "none" as const,
+    backgroundImage: `url("${packResolvedBg.value}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    opacity: opa,
+  };
+});
+
+watch(
+  () => String(screenMainDefault(store.currentScreen?.style).bg_image ?? ""),
+  async (bg) => {
+    if (!bg) {
+      screenResolvedBg.value = null;
+      return;
+    }
+    const url = await resolveProjectAssetDataUrl(bg);
+    if (!url) console.warn("[forgeui] screen bg_image failed to resolve:", bg);
+    screenResolvedBg.value = url;
+  },
+  { immediate: true },
+);
+
+watch(
+  () => String(screenMainDefault(store.packPreviewScreen?.style).bg_image ?? ""),
+  async (bg) => {
+    if (!bg) {
+      packResolvedBg.value = null;
+      return;
+    }
+    const url = await resolveProjectAssetDataUrl(bg);
+    if (!url) console.warn("[forgeui] pack screen bg_image failed to resolve:", bg);
+    packResolvedBg.value = url;
+  },
+  { immediate: true },
+);
 /** Centered device frame + pan + zoom (no scrollbars). */
 const worldStyle = computed(() => {
   const { w, h } = displaySize.value;
@@ -216,7 +326,9 @@ function onDragOver(e: DragEvent) {
 }
 
 function screenLocalFromClient(clientX: number, clientY: number): { x: number; y: number } | null {
-  const screen = stageEl.value?.querySelector(".screen") as HTMLElement | null;
+  const screen =
+    (stageEl.value?.querySelector(".screen-clip") as HTMLElement | null) ??
+    (stageEl.value?.querySelector(".screen") as HTMLElement | null);
   if (!screen) return null;
   const rect = screen.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
@@ -644,10 +756,26 @@ watch(stageEl, (el) => {
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.35),
     0 16px 48px rgba(0, 0, 0, 0.45);
-  /* BK: selection handles may paint slightly outside the device frame */
   overflow: visible;
   cursor: default;
 }
+
+/* BK canvas-content-inner: clip widgets to device logical size (LVGL screen). */
+.screen-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.screen-bg-img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Do NOT set position:relative on widgets — must stay absolute so left/top == frame.x/y (sim). */
 
 .pack-mode {
   display: flex;

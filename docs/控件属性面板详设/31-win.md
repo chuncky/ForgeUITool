@@ -73,13 +73,21 @@
   },
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#ffffffff",
+        "radius": 8,
+        "border_width": 2,
+        "border_color": "#e0e0e0ff",
+        "text_color": "#212121ff"
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_CARD`）写入，对齐 LVGL `theme_default` Light，保证画布与模拟一致。
 
 ## 5. 验收要点
 

@@ -23,7 +23,7 @@
 | type | `button` |
 | 中文名 | 按钮 |
 | category | `button` |
-| isContainer | true |
+| isContainer | **false**（不可作父；面板添加 / 树拖拽 / MCP 均不可把子控件挂进 button；文案用 `props.text`） |
 | styleParts | `main` |
 | events | `CLICKED`, `PRESSED`, `RELEASED`, `LONG_PRESSED` |
 | extraDataEditor | — |
@@ -70,13 +70,19 @@
   },
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#2196F3ff",
+        "text_color": "#ffffffff",
+        "radius": 8
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_BTN_PRIMARY`）写入，对齐 LVGL `theme_default` Light，保证画布与模拟一致。
 
 ## 5. 验收要点
 
@@ -153,8 +159,8 @@
   "props": { "text": "确定" },
   "style": {
     "main": {
-      "default": { "bg_color": "#2d75b9ff", "text_color": "#ffffffff", "radius": 5 },
-      "pressed": { "bg_color": "#1e5a94ff" }
+      "default": { "bg_color": "#2196F3ff", "text_color": "#ffffffff", "radius": 8 },
+      "pressed": { "bg_color": "#1976D2ff" }
     }
   },
   "events": [],

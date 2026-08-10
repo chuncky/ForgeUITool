@@ -4,13 +4,15 @@ import path from "node:path";
 import { openProject, resolveCodegenPaths } from "@forgeui/core";
 
 /** Bump when configure inputs change (e.g. GLOB dirs that must reconfigure). */
-export const PREVIEW_TEMPLATE_VERSION = "8";
+export const PREVIEW_TEMPLATE_VERSION = "10";
 
 export interface PreviewBuildCache {
   fingerprint: string;
   configuredAt: string;
   generator?: string;
   buildType: string;
+  /** Product LVGL tree stamp; change ⇒ wipe lvgl_build objs only (keep SDL). */
+  lvglStamp?: string;
 }
 
 export interface PreviewFingerprintInput {
@@ -18,6 +20,8 @@ export interface PreviewFingerprintInput {
   projectRoot: string;
   templateDir: string;
   lvglRoot: string;
+  /** Hash of lvgl.h + blend dir listing (detect wrong hybrid trees). */
+  lvglStamp: string;
   sdl2Root: string;
   repoRoot: string;
   display: { width: number; height: number; colorDepth: number };
@@ -85,12 +89,52 @@ export function generatedSourcesFingerprint(projectRoot: string): string {
   return hashParts(parts);
 }
 
+/**
+ * Stamp product LVGL so packaging the wrong hybrid tree (stock al88 + QM `_` typedefs)
+ * forces reconfigure + lvgl object wipe without discarding SDL build trees.
+ */
+export function computeLvglStamp(lvglRoot: string): string {
+  const root = path.resolve(lvglRoot);
+  const blendDir = path.join(root, "src/draw/sw/blend");
+  const blendNames = fs.existsSync(blendDir)
+    ? fs
+        .readdirSync(blendDir)
+        .filter((n) => n.startsWith("lv_draw_sw_blend"))
+        .sort()
+        .join(",")
+    : "";
+  const cCount = countCFiles(path.join(root, "src"));
+  return hashParts([fileContentHash(path.join(root, "lvgl.h")), blendNames, `c:${cCount}`]);
+}
+
+function countCFiles(dir: string): number {
+  if (!fs.existsSync(dir)) return 0;
+  let n = 0;
+  const walk = (d: string) => {
+    for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, ent.name);
+      if (ent.isDirectory()) walk(p);
+      else if (ent.name.endsWith(".c")) n += 1;
+    }
+  };
+  walk(dir);
+  return n;
+}
+
 export function computeConfigureFingerprint(input: PreviewFingerprintInput): string {
-  const templateFiles = ["CMakeLists.txt", "main.c", "hal.c", "lv_conf.h", "optimize_drivers.cmake"];
+  const templateFiles = [
+    "CMakeLists.txt",
+    "main.c",
+    "hal.c",
+    "lv_conf.h",
+    "lv_drv_conf.h",
+    "optimize_drivers.cmake",
+  ];
   const templateSigs = templateFiles.map((n) => `${n}=${fileContentHash(path.join(input.templateDir, n))}`);
   return hashParts([
     input.templateVersion,
     input.lvglRoot,
+    input.lvglStamp,
     input.sdl2Root,
     input.repoRoot,
     input.generator ?? "default",

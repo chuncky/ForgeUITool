@@ -313,16 +313,31 @@ function stagePreviewSdk() {
     log("WARN: LVGL not found; need xos-package/lvgl, fetch:lvgl, or FORGEUI_LVGL_ROOT");
   }
 
+  // Product Windows toolchain (MinGW/ccache + cmake + prebuilt SDL2), BK-compatible layout.
+  const toolsWinSrc = path.join(root, "xos-package", "tools", "win");
+  const toolsParts = ["w64devkit", "cmake", "sdl2"];
+  const missingTools = toolsParts.filter((n) => !fs.existsSync(path.join(toolsWinSrc, n)));
+  if (missingTools.length === 0) {
+    const destWin = path.join(stageRoot, "xos-package", "tools", "win");
+    for (const name of toolsParts) {
+      log(`stage tools/win/${name} ← ${path.join(toolsWinSrc, name)}`);
+      copyDir(path.join(toolsWinSrc, name), path.join(destWin, name));
+    }
+  } else {
+    log(
+      `WARN: xos-package/tools/win missing [${missingTools.join(", ")}]; run node scripts/sync-xos-tools.mjs (preview may fall back to MSVC)`,
+    );
+  }
+
+  // Optional SDL2 sources (fallback when prebuilt sdl2 is absent).
   const sdlSrc = path.join(root, "third_party", "SDL2-2.30.11");
   if (fs.existsSync(path.join(sdlSrc, "CMakeLists.txt"))) {
-    log(`stage SDL2 ← ${sdlSrc}`);
+    log(`stage SDL2 sources ← ${sdlSrc}`);
     copyDir(sdlSrc, path.join(stageRoot, "third_party", "SDL2-2.30.11"));
-  } else {
-    log("WARN: SDL2 sources missing; preview may auto-fetch on first run");
   }
 
   ensureDir(path.join(stageRoot, "scripts"));
-  for (const script of ["fetch-lvgl.mjs", "fetch-sdl.mjs"]) {
+  for (const script of ["fetch-lvgl.mjs", "fetch-sdl.mjs", "sync-xos-tools.mjs"]) {
     const src = path.join(root, "scripts", script);
     if (fs.existsSync(src)) {
       fs.copyFileSync(src, path.join(stageRoot, "scripts", script));
@@ -345,6 +360,24 @@ function stageRuntimeRoot(version) {
     copyDir(schemasSrc, path.join(stageRoot, "schemas"));
   } else {
     log("WARN: schemas/ missing — project validate will fail in packaged app");
+  }
+
+  // AI design Skill templates (Cursor/Codex/TRAE install from here when packaged).
+  const aiSkillSrc = path.join(root, "resources", "ai-skill");
+  if (fs.existsSync(path.join(aiSkillSrc, "forgeui-lvgl-designer", "SKILL.md"))) {
+    log(`stage AI skill ← ${aiSkillSrc}`);
+    copyDir(aiSkillSrc, path.join(stageRoot, "resources", "ai-skill"));
+  } else {
+    log("WARN: resources/ai-skill/forgeui-lvgl-designer missing — AI设计安装 Skill 会失败");
+  }
+
+  // Built-in designer fonts (property panel defaults + canvas @font-face).
+  const ttfSrc = path.join(root, "xos-package", "res", "ttf");
+  if (fs.existsSync(ttfSrc)) {
+    log(`stage builtin fonts ← ${ttfSrc}`);
+    copyDir(ttfSrc, path.join(stageRoot, "xos-package", "res", "ttf"));
+  } else {
+    log("WARN: xos-package/res/ttf missing — default text_font will not resolve on canvas");
   }
 
   ensureDir(path.join(stageRoot, "docs"));
@@ -407,17 +440,20 @@ function writeReleaseNotes(version) {
 - Windows x64 设计器（Electron）
 - 运行时：\`@forgeui/*\`（codegen / preview / mcp / packer …）
 - 工程模板：\`templates/\`
-- 预览 SDK：优先 \`xos-package/lvgl\`，否则 \`third_party/lvgl\`；另含 \`SDL2\`（打包时若存在则打入）
+- AI Skill：\`resources/ai-skill/forgeui-lvgl-designer\`（「AI设计」一键安装）
+- 预览 SDK：\`xos-package/lvgl\` → \`third_party/lvgl\`；Windows 工具链 \`xos-package/tools/win\`（w64devkit / cmake / sdl2）一并打入
+- PC 预览：优先内置 MinGW+Ninja+ccache，无需本机另装 VS
 
 ## 使用
 
 1. 运行 portable 可执行文件，或解压 \`win-unpacked\` 目录后启动 **ForgeUI Kit**
 2. 新建或打开工程
-3. PC 预览需本机安装 **CMake** 与可用 C 编译器
+3. PC 预览优先使用内置 \`xos-package/tools/win\`（w64devkit + cmake + SDL2）
 
-## MCP
+## MCP / AI 设计
 
-使用设计器「AI 设计」导出的 mcp 配置；生产态通过 \`ELECTRON_RUN_AS_NODE=1\` 拉起内置 MCP server。
+顶栏「AI设计」→ Cursor：自动安装 MCP + Skill，并打开工程 \`.forge-ai\`。  
+生产态 MCP 通过 \`ELECTRON_RUN_AS_NODE=1\` 拉起内置 server。
 
 生成时间：${new Date().toISOString()}
 `;

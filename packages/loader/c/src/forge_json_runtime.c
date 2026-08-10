@@ -526,6 +526,9 @@ static void parse_style_block(const char *obj, forge_json_widget_desc_t *desc)
     if (read_s16_json_field(def, "bg_opacity", &desc->style_bg_opacity) != 0) {
         desc->style_bg_opacity = -1;
     }
+    if (read_s16_json_field(def, "bg_img_opacity", &desc->style_bg_img_opacity) != 0) {
+        desc->style_bg_img_opacity = -1;
+    }
     if (read_s16_json_field(def, "text_opacity", &desc->style_text_opacity) != 0) {
         desc->style_text_opacity = -1;
     }
@@ -891,6 +894,7 @@ static int parse_widget_object(const char *obj, forge_json_widget_desc_t *desc)
     desc->style_shadow_ofs_x = -1;
     desc->style_shadow_ofs_y = -1;
     desc->style_bg_opacity = -1;
+    desc->style_bg_img_opacity = -1;
     desc->style_text_opacity = -1;
     desc->style_border_opacity = -1;
     desc->style_shadow_opacity = -1;
@@ -1330,6 +1334,9 @@ static void apply_main_default_style(lv_obj_t *obj, const forge_json_widget_desc
     }
     if (desc->image_src[0]) {
         lv_obj_set_style_bg_image_src(obj, desc->image_src, sel);
+        if (desc->style_bg_img_opacity >= 0) {
+            lv_obj_set_style_bg_image_opa(obj, (lv_opa_t)desc->style_bg_img_opacity, sel);
+        }
     }
 }
 

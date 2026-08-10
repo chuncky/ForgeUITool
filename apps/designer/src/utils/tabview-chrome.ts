@@ -7,6 +7,7 @@ import {
   withAlpha,
   type CanvasChromeStyle,
 } from "./canvas-chrome.js";
+import { opacityToCss01 } from "@forgeui/core/opacity";
 import { resolvePartCanvasStyleProps } from "./style.js";
 
 export type TabBarPosition = "TOP" | "BOTTOM" | "LEFT" | "RIGHT";
@@ -35,10 +36,7 @@ export type TabviewChromeModel = {
 };
 
 function opa01(value: unknown): number | undefined {
-  if (value == null || value === "") return undefined;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return undefined;
-  return Math.max(0, Math.min(1, n > 1 ? n / 255 : n));
+  return opacityToCss01(value);
 }
 
 function num(value: unknown, fallback: number): number {
@@ -116,11 +114,16 @@ function partChrome(
   const borderW = num(def.border_width, 0);
   const radius = def.radius != null ? num(def.radius, 0) : undefined;
   const fontSize = def.text_font_size != null ? num(def.text_font_size, 12) : undefined;
+  const bgImgOpa01 = opa01(def.bg_img_opacity) ?? 1;
+  const isGradient = typeof background === "string" && background.includes("gradient");
 
   return {
-    background,
+    ...(bgImage && !isGradient ? { backgroundColor: background } : { background }),
     backgroundImage: bgImage ? `url("${bgImage}")` : undefined,
     backgroundSize: bgImage ? "cover" : undefined,
+    backgroundPosition: bgImage ? "center" : undefined,
+    backgroundRepeat: bgImage ? "no-repeat" : undefined,
+    ["--forge-bg-img-opa" as string]: bgImage ? bgImgOpa01 : undefined,
     color: withAlpha(forgeColorToCss(def.text_color, "#F0F4F8"), textOpa) ?? "#F0F4F8",
     border:
       borderW > 0

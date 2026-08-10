@@ -1,11 +1,14 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, watch } from "vue";
+import { useSettingsStore } from "./settings";
 
 export const useUiStore = defineStore("ui", () => {
   const widgetLibraryVisible = ref(true);
   const showNewProject = ref(false);
   const showProjectSettings = ref(false);
   const showAssets = ref(false);
+  /** AssetsDialog primary tab: images | fonts | i18n (BK 资源管理). */
+  const assetsMainTab = ref<"images" | "fonts" | "i18n">("images");
   const showColorLibrary = ref(false);
   const showStyleLibrary = ref(false);
   const showSaveStyle = ref(false);
@@ -28,13 +31,22 @@ export const useUiStore = defineStore("ui", () => {
   const rightTab = ref<"props" | "events">("props");
   const cMenuOpen = ref(false);
   const deliveryMenuOpen = ref(false);
+  const aiMenuOpen = ref(false);
 
   /** When set, AssetsDialog picks an image and invokes this callback (FR-040 / imageSrc). */
   const imagePickHandler = ref<((path: string) => void) | null>(null);
   /** When set, AssetsDialog picks a font id for text_font / fontRef. */
   const fontPickHandler = ref<((fontId: string) => void) | null>(null);
-  /** When set, ColorLibraryDialog picks a color ref (@id) for a style field. */
+  /** When set, ColorLibraryDialog picks a color ref (@id) or literal hex for a style field. */
   const colorPickHandler = ref<((ref: string) => void) | null>(null);
+  /** Session recent hex colors (BK「最近使用」, max 10). */
+  const recentColors = ref<string[]>([]);
+
+  function pushRecentColor(hex: string) {
+    const v = hex.trim().toLowerCase();
+    if (!v.startsWith("#")) return;
+    recentColors.value = [v, ...recentColors.value.filter((x) => x !== v)].slice(0, 10);
+  }
   /** Draft for SaveStyleDialog (current Part×State snapshot). */
   const saveStyleDraft = ref<{
     part: string;
@@ -78,9 +90,30 @@ export const useUiStore = defineStore("ui", () => {
     widgetContextMenu.value = null;
   }
 
+  function openAssets(tab: "images" | "fonts" | "i18n" = "images") {
+    assetsMainTab.value = tab;
+    imagePickHandler.value = null;
+    fontPickHandler.value = null;
+    showAssets.value = true;
+  }
+
+  /** Open assets dialog on 多语言 tab (replaces standalone i18n dialog entry). */
+  function openI18n() {
+    openAssets("i18n");
+  }
+
+  // Compat: anything still setting showI18n opens Assets「多语言」tab instead.
+  watch(showI18n, (v) => {
+    if (v) {
+      showI18n.value = false;
+      openI18n();
+    }
+  });
+
   function openAssetsForImagePick(handler: (path: string) => void) {
     imagePickHandler.value = handler;
     fontPickHandler.value = null;
+    assetsMainTab.value = "images";
     showAssets.value = true;
   }
 
@@ -97,6 +130,7 @@ export const useUiStore = defineStore("ui", () => {
   function openAssetsForFontPick(handler: (fontId: string) => void) {
     fontPickHandler.value = handler;
     imagePickHandler.value = null;
+    assetsMainTab.value = "fonts";
     showAssets.value = true;
   }
 
@@ -116,6 +150,7 @@ export const useUiStore = defineStore("ui", () => {
   }
 
   function pickColorRef(ref: string) {
+    if (ref.startsWith("#")) pushRecentColor(ref);
     colorPickHandler.value?.(ref);
     colorPickHandler.value = null;
     showColorLibrary.value = false;
@@ -132,9 +167,24 @@ export const useUiStore = defineStore("ui", () => {
     } catch {
       /* ignore */
     }
+    try {
+      const s = useSettingsStore();
+      if (s.settings.locale !== locale) s.settings.locale = locale;
+    } catch {
+      /* pinia not ready */
+    }
   }
 
   function initUiLocale() {
+    try {
+      const loc = useSettingsStore().settings.locale;
+      if (loc === "en" || loc === "zh-CN") {
+        uiLocale.value = loc;
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
     try {
       const v = localStorage.getItem("forgeui.designer.uiLocale");
       if (v === "en" || v === "zh-CN") uiLocale.value = v;
@@ -149,6 +199,9 @@ export const useUiStore = defineStore("ui", () => {
     showNewProject,
     showProjectSettings,
     showAssets,
+    assetsMainTab,
+    openAssets,
+    openI18n,
     showColorLibrary,
     showStyleLibrary,
     showSaveStyle,
@@ -177,9 +230,12 @@ export const useUiStore = defineStore("ui", () => {
     rightTab,
     cMenuOpen,
     deliveryMenuOpen,
+    aiMenuOpen,
     imagePickHandler,
     fontPickHandler,
     colorPickHandler,
+    recentColors,
+    pushRecentColor,
     openAssetsForImagePick,
     pickImageAsset,
     clearImagePick,

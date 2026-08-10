@@ -10,6 +10,12 @@ import {
 } from "@forgeui/shared";
 import type { LoadedProject, ProjectDocument, ScreenDocument } from "./types.js";
 import { validateProjectDir } from "./validate.js";
+import {
+  ensureBuiltinFontsInProject,
+  resolveBuiltinFontsDir,
+} from "./builtin-fonts-fs.js";
+import { DEFAULT_FONT_STYLE_PROPS } from "./builtin-fonts.js";
+import { DEFAULT_OPACITY_STYLE_PROPS } from "./opacity.js";
 
 function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(file, "utf8")) as T;
@@ -95,7 +101,15 @@ function blankScreen(id: string, name: string, w: number, h: number): ScreenDocu
     name,
     frame: { x: 0, y: 0, w, h },
     props: {},
-    style: { main: { default: { bg_color: "#101820" } } },
+    style: {
+      main: {
+        default: {
+          bg_color: "#101820ff",
+          ...DEFAULT_FONT_STYLE_PROPS,
+          ...DEFAULT_OPACITY_STYLE_PROPS,
+        },
+      },
+    },
     events: [],
     children: [],
   };
@@ -151,7 +165,12 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
     if (opts.deliveryMode) project.deliveryMode = opts.deliveryMode;
     writeJson(path.join(root, "project.json"), project);
     writeProjectGitignore(root);
-    return openProject(root);
+    const loaded = openProject(root);
+    const fontsDir = resolveBuiltinFontsDir();
+    if (ensureBuiltinFontsInProject(loaded, fontsDir)) {
+      saveProject(loaded);
+    }
+    return loaded;
   }
 
   const home = blankScreen("home", "Home", display.width, display.height);
@@ -185,5 +204,9 @@ export function createProject(opts: CreateProjectOptions): LoadedProject {
   };
   saveProject(loaded);
   writeProjectGitignore(root);
+  const fontsDir = resolveBuiltinFontsDir();
+  if (ensureBuiltinFontsInProject(loaded, fontsDir)) {
+    saveProject(loaded);
+  }
   return loaded;
 }

@@ -74,13 +74,18 @@
   },
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#2196F333",
+        "radius": 9999
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_BAR_TRACK`）写入，对齐 LVGL `theme_default` Light，保证画布与模拟一致。
 
 ## 5. 验收要点
 

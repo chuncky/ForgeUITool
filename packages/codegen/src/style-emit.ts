@@ -62,6 +62,7 @@ const STYLE_EMITTERS: Record<string, StyleEmitter> = {
   pad_left: (sym, sel, v) => `  lv_obj_set_style_pad_left(${sym}, ${num(v)}, ${sel});`,
   line_width: (sym, sel, v) => `  lv_obj_set_style_line_width(${sym}, ${num(v)}, ${sel});`,
   bg_opacity: (sym, sel, v) => `  lv_obj_set_style_bg_opa(${sym}, ${num(v)}, ${sel});`,
+  bg_img_opacity: (sym, sel, v) => `  lv_obj_set_style_bg_image_opa(${sym}, ${num(v)}, ${sel});`,
   text_opacity: (sym, sel, v) => `  lv_obj_set_style_text_opa(${sym}, ${num(v)}, ${sel});`,
   border_opacity: (sym, sel, v) => `  lv_obj_set_style_border_opa(${sym}, ${num(v)}, ${sel});`,
   shadow_opacity: (sym, sel, v) => `  lv_obj_set_style_shadow_opa(${sym}, ${num(v)}, ${sel});`,

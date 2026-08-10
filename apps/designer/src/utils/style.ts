@@ -8,6 +8,7 @@ export {
   styleFieldsForWidget,
   styleSubgroupsForWidget,
   visibleStyleFieldKeysForWidget,
+  isStyleFieldPanelVisible,
 } from "./style-fields.js";
 
 export type { StyleFieldDef, StyleSubgroupDef } from "./style-fields.js";

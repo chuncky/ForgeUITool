@@ -632,7 +632,12 @@ lv_result_t lv_indev_send_event(lv_indev_t * indev, lv_event_code_t code, void *
     return res;
 }
 
-__attribute__((weak)) void indev_hook_handler(lv_indev_t * indev, lv_indev_data_t * data) {
+#if defined(_MSC_VER)
+void indev_hook_handler(lv_indev_t * indev, lv_indev_data_t * data)
+#else
+__attribute__((weak)) void indev_hook_handler(lv_indev_t * indev, lv_indev_data_t * data)
+#endif
+{
     (void)indev;
     (void)data;
 }

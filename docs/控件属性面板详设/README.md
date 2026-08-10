@@ -4,6 +4,8 @@
 
 **模块总目录（架构 / IPC / 共性契约）：** [`../嵌入式UI工具_控件属性面板详细设计说明.md`](../嵌入式UI工具_控件属性面板详细设计说明.md)
 
+**默认样式：** 可添加控件的 §4 JSON `style.main.default` 须与 `WidgetSpec.defaultStyle`（`STYLE_SEED_*` / LVGL `theme_default` Light）一致，见模块详设 **§5.4**。权威源：`packages/core/src/widgets.ts`。
+
 | # | 控件 | 类型 | 文档 |
 |---|------|------|------|
 | 1 | 屏幕 | `screen` | [01-screen.md](./01-screen.md) |

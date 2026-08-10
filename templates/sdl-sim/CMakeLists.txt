@@ -69,8 +69,23 @@ if(NOT _forgeui_sdl2_found)
     "  2) Or set FORGEUI_SDL2_ROOT to an SDL2 install prefix")
 endif()
 
+# lv_conf.h lives in this preview-build dir (copied from templates/sdl-sim).
+# Must be visible to the *lvgl* target itself (not only forgeui_preview), or MSVC
+# fails with C1083 on lv_conf.h when rebuilding LVGL after clean/reconfigure.
+set(LV_CONF_INCLUDE_SIMPLE ON CACHE BOOL "Use #include \"lv_conf.h\"" FORCE)
+# Skip xos device-only qua_mm / syscall paths in lv_init.c.
+set(BUILD_SIMULATOR 1 CACHE STRING "ForgeUI PC SDL preview" FORCE)
+
 add_subdirectory(${LVGL_DIR} lvgl_build)
 target_link_libraries(lvgl PUBLIC SDL2::SDL2)
+target_include_directories(lvgl PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${LVGL_INCLUDE_ROOT}"
+)
+target_compile_definitions(lvgl PUBLIC
+  LV_CONF_INCLUDE_SIMPLE
+  BUILD_SIMULATOR=1
+)
 if(FORGEUI_SDL2_ROOT AND EXISTS "${FORGEUI_SDL2_ROOT}/include/SDL2/SDL.h")
   target_include_directories(lvgl PUBLIC "${FORGEUI_SDL2_ROOT}/include")
 endif()

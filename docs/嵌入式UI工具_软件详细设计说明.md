@@ -2,8 +2,14 @@
 
 > **文档类型：** 软件详细设计（LLD）  
 > **产品暂名：** ForgeUI Kit（可替换）  
-> **版本：** V1.24  
-> **日期：** 2026-08-04  
+> **版本：** V1.32  
+> **日期：** 2026-08-07  
+> **V1.32：** 画布坐标系回归：禁止 `.screen` 子节点 `position:relative` 覆盖控件 `absolute`（否则 left/top 相对文档流，与模拟 `lv_obj_set_pos` 错位）；`.screen-clip` 裁屏外绘制；拖/缩 live 相对父框钳制。§9.7.2。  
+> **V1.31：** 控件树拖拽改父 / 可父容器收紧：`moveNode` + `project:moveNode`；`button.isContainer=false`；§9.7.1 / §9.7.3.2 / §9.7.3.5 / §9.10；Core §4.1.3。  
+> **V1.30：** §9.8 资源管理对齐 BK（图片\|字体\|多语言）；顶栏多语言并入资源管理。  
+> **V1.29：** §9.8 颜色库含色板主题 `colorThemes`（≠ 样式库 `themes`）；见 `颜色库-本产品映射.md`。  
+> **V1.28：** §9.7.4 滚动条 chrome 对齐 Beken（6px + ocean-blue 色板；`styles.css` 全局）。  
+> **V1.27：** Renderer **禁止** `@forgeui/core` barrel（§2 / 详设 §2）；`vite build` / `npm run release` 门禁。  
 > **V1.24：** **FR-016e 收口**：工程资源 `project:assetDataUrl` → 画布真图/真字体；`text_font_size`；按钮文案满宽；§9.7.2 / §9.7.4。禁止未解析相对路径冒充完成。  
 > **V1.23：** **FR-016e** 属性→画布 chrome：`buildWidgetCanvasChrome`；按钮契约测试 `designer_button_canvas_chrome.test.ts`；§9.7.2。  
 > **V1.22：** **FR-011d** 切页/存档前 `flushPendingEditor` + mutation 队列；EventPanel 仅按选中重置草稿。  

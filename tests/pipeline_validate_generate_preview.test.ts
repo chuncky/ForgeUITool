@@ -50,6 +50,12 @@ function findPreviewExe(outDir: string): string | undefined {
   return undefined;
 }
 
+/** Soft-skip only when cmake/LVGL/SDL are absent — not when cmake build itself fails. */
+function isMissingPreviewToolchain(diagnostics: { message: string }[]): boolean {
+  const msg = diagnostics.map((d) => d.message).join("\n");
+  return /未找到 cmake|未找到 LVGL|未找到 SDL2|FORGEUI_LVGL_ROOT|templates\/sdl-sim not found/i.test(msg);
+}
+
 describe("pipeline: validate → generate → preview", () => {
   it("style-library project validates and generates runnable C", async () => {
     const loaded = freshProject("style");
@@ -133,16 +139,79 @@ describe("pipeline: validate → generate → preview", () => {
         skipGenerate: true,
       });
       if (!result.ok) {
-        const msg = result.diagnostics.map((d) => d.message).join("\n");
-        // Soft-skip: CI / machines without cmake or FORGEUI_LVGL_ROOT
-        if (/cmake|LVGL|FORGEUI_LVGL|not found|找不到/i.test(msg)) {
-          return;
-        }
+        if (isMissingPreviewToolchain(result.diagnostics)) return;
+        const msg = [
+          ...result.diagnostics.map((d) => d.message),
+          ...(result.buildLogs ?? []).slice(-80),
+        ].join("\n");
         expect.fail(`unexpected build failure:\n${msg}`);
       }
       expect(result.buildLogs?.some((l) => l.includes("--- cmake build ---"))).toBe(true);
       expect(findPreviewExe(path.join(loaded.root, ".forge/preview-build/out"))).toBeTruthy();
     },
     180_000,
+  );
+
+  it(
+    "clean rebuild after wiping preview out/ still finds lv_conf and compiles",
+    async () => {
+      const loaded = freshProject("clean-rebuild");
+      const sid = loaded.project.defaultScreen;
+      const lbl = addChildNode(loaded, sid, sid, "label");
+      updateNodeProps(loaded, sid, lbl.id, {
+        props: { text: "LongModeDot", long_mode: "dot" },
+      });
+      const btn = addChildNode(loaded, sid, sid, "button");
+      updateNodeProps(loaded, sid, btn.id, { props: { text: "Go" } });
+      saveProject(loaded);
+      await generate(loaded.root);
+
+      const host = createPreviewHost();
+      const first = await host.run(loaded.root, {
+        backend: "sdl",
+        buildOnly: true,
+        skipGenerate: true,
+      });
+      if (!first.ok) {
+        if (isMissingPreviewToolchain(first.diagnostics)) return;
+        const msg = [
+          ...first.diagnostics.map((d) => d.message),
+          ...(first.buildLogs ?? []).slice(-80),
+        ].join("\n");
+        expect.fail(`first build failed:\n${msg}`);
+      }
+
+      // Simulate clean + regenerate: wipe cmake out so LVGL must recompile
+      const outDir = path.join(loaded.root, ".forge/preview-build/out");
+      fs.rmSync(outDir, { recursive: true, force: true });
+      await generate(loaded.root);
+
+      const second = await host.run(loaded.root, {
+        backend: "sdl",
+        buildOnly: true,
+        skipGenerate: true,
+      });
+      if (!second.ok) {
+        const msg = [
+          ...second.diagnostics.map((d) => d.message),
+          ...(second.buildLogs ?? []),
+        ].join("\n");
+        expect.fail(`clean rebuild failed (lv_conf / xos trim regression):\n${msg}`);
+      }
+      expect(findPreviewExe(outDir)).toBeTruthy();
+      const cmakeTxt = fs.readFileSync(
+        path.join(loaded.root, ".forge/preview-build/CMakeLists.txt"),
+        "utf8",
+      );
+      expect(cmakeTxt).toMatch(/BUILD_SIMULATOR=1/);
+      expect(cmakeTxt).toMatch(/target_include_directories\(lvgl PUBLIC/);
+      const opt = fs.readFileSync(
+        path.join(loaded.root, ".forge/preview-build/optimize_drivers.cmake"),
+        "utf8",
+      );
+      expect(opt).toMatch(/draw\/sw\/blend\/qua/);
+      expect(opt).toMatch(/libs\/quajpeg/);
+    },
+    360_000,
   );
 });

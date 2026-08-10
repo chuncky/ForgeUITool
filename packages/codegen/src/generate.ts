@@ -13,6 +13,7 @@ import {
   resolveCodegenPaths,
   saveProject,
   symbolFor,
+  flattenNamedColors,
   type Action,
   type FontAsset,
   type ProjectIR,
@@ -119,7 +120,7 @@ function emitNodeStyles(
     ...emitWidgetStyleLines(
       sym,
       node,
-      ir.meta.colors,
+      flattenNamedColors(ir.meta.colors, ir.meta.colorThemes),
       fonts,
       emittedImages,
       imageIncludes,
@@ -965,6 +966,34 @@ function appendMissingHandlers(
   return { content, appended };
 }
 
+/** Append missing `void handler(void);` decls without rewriting user-edited headers. */
+function appendMissingHandlerDecls(
+  userH: string,
+  handlers: string[],
+): { content: string; appended: string[] } {
+  const appended: string[] = [];
+  let content = userH;
+  for (const h of handlers) {
+    const re = new RegExp(`\\bvoid\\s+${h}\\s*\\(`);
+    if (re.test(content)) continue;
+    appended.push(h);
+    const decl = `void ${h}(void);\n`;
+    const cxxClose = "#ifdef __cplusplus\n}\n#endif";
+    const cxxIdx = content.lastIndexOf(cxxClose);
+    if (cxxIdx >= 0) {
+      content = `${content.slice(0, cxxIdx)}${decl}\n${content.slice(cxxIdx)}`;
+      continue;
+    }
+    const end = content.lastIndexOf("#endif");
+    if (end >= 0) {
+      content = `${content.slice(0, end)}${decl}\n${content.slice(end)}`;
+    } else {
+      content += decl;
+    }
+  }
+  return { content, appended };
+}
+
 export async function generate(projectRoot: string, opts: CodeGenOptions = {}): Promise<CodeGenResult> {
   const diagnostics: Diagnostic[] = [];
   const filesWritten: string[] = [];
@@ -1169,7 +1198,13 @@ export async function generate(projectRoot: string, opts: CodeGenOptions = {}): 
     if (!fs.existsSync(userHPath)) {
       writeFile(userHPath, userH({ handlers: ir.callHandlers }), filesWritten, filesSkipped);
     } else {
-      filesSkipped.push(userHPath);
+      const existingH = fs.readFileSync(userHPath, "utf8");
+      const { content, appended } = appendMissingHandlerDecls(existingH, ir.callHandlers);
+      if (appended.length) {
+        writeFile(userHPath, content, filesWritten, filesSkipped);
+      } else {
+        filesSkipped.push(userHPath);
+      }
     }
 
     if (!fs.existsSync(userCPath)) {

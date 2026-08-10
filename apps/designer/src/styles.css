@@ -6,7 +6,8 @@
   font-display: swap;
 }
 
-:root {
+:root,
+:root[data-theme="midnight"] {
   --bg: #0f1419;
   --panel: #1a222c;
   --panel-2: #222c38;
@@ -18,11 +19,76 @@
   --danger: #e25b5b;
   --canvas-bg: #0b1015;
   --screen: #102a43;
+  /* Scrollbar chrome — Beken ocean-blue theme-scrollbar-* (详设 §9.7.4) */
+  --scrollbar-size: 6px;
+  --scrollbar-track: #1a222c;
+  --scrollbar-thumb: #7a8a9e;
+  --scrollbar-thumb-hover: #94a3b8;
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+:root[data-theme="charcoal"] {
+  --bg: #121212;
+  --panel: #1e1e1e;
+  --panel-2: #2a2a2a;
+  --border: #3a3a3a;
+  --text: #f0f0f0;
+  --muted: #9a9a9a;
+  --accent: #5b9bd5;
+  --accent-2: #3d6e99;
+  --danger: #e25b5b;
+  --canvas-bg: #0a0a0a;
+  --screen: #1a1a1a;
+  --scrollbar-track: #1e1e1e;
+  --scrollbar-thumb: #666;
+  --scrollbar-thumb-hover: #888;
+}
+
+:root[data-theme="pearl"] {
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --panel-2: #eef1f5;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --muted: #656d76;
+  --accent: #0969da;
+  --accent-2: #0550ae;
+  --danger: #cf222e;
+  --canvas-bg: #e8ecf0;
+  --screen: #ffffff;
+  --scrollbar-track: #eef1f5;
+  --scrollbar-thumb: #afb8c1;
+  --scrollbar-thumb-hover: #8c959f;
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 html,

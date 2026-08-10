@@ -9,12 +9,15 @@ import { runProcessAsync } from "./process.js";
 import {
   PREVIEW_TEMPLATE_VERSION,
   computeConfigureFingerprint,
+  computeLvglStamp,
   needsReconfigure,
+  readBuildCache,
   reconfigureReason,
   softCleanCmakeCache,
   writeBuildCache,
 } from "./cache.js";
 import { mergePathEnv, resolvePreviewToolchain } from "./toolchain.js";
+import { resolveWinToolsRoot } from "./win-tools.js";
 import type {
   PreviewBackend,
   PreviewBuildLogSink,
@@ -116,8 +119,10 @@ function resolveSdl2Root(): string | null {
   if (env && fs.existsSync(env) && sdl2Marker(env)) return path.resolve(env);
 
   const repo = resolveRepoRoot();
+  const toolsWin = resolveWinToolsRoot(repo);
   const candidates = [
-    path.join(repo, "ref/beken/lvgl_ui_designer_2.0.3/resources/tools/win/sdl2"),
+    ...(toolsWin ? [path.join(toolsWin, "sdl2")] : []),
+    path.join(repo, "xos-package/tools/win/sdl2"),
     path.join(repo, "third_party/SDL2-2.30.11"),
     path.join(repo, "third_party/SDL"),
   ];
@@ -173,7 +178,11 @@ function writeConfigHeader(buildDir: string, width: number, height: number, colo
   fs.writeFileSync(dest, content, "utf8");
 }
 
-function patchLvConf(buildDir: string, colorDepth: number): void {
+function patchLvConf(
+  buildDir: string,
+  colorDepth: number,
+  display?: { width: number; height: number },
+): void {
   const confPath = path.join(buildDir, "lv_conf.h");
   if (!fs.existsSync(confPath)) return;
   const text = fs.readFileSync(confPath, "utf8");
@@ -181,6 +190,33 @@ function patchLvConf(buildDir: string, colorDepth: number): void {
   next = next.replace(/#define LV_USE_ASSERT_MEM_INTEGRITY\s+\d+/, "#define LV_USE_ASSERT_MEM_INTEGRITY 0");
   next = next.replace(/#define LV_USE_ASSERT_OBJ\s+\d+/, "#define LV_USE_ASSERT_OBJ 0");
   next = next.replace(/#define LV_USE_ASSERT_STYLE\s+\d+/, "#define LV_USE_ASSERT_STYLE 0");
+  // Keep OBJ_ID_BUILTIN aligned with OBJ_ID (xos LVGL compiles builtin when BUILTIN=1).
+  next = next.replace(/#define LV_USE_OBJ_ID_BUILTIN\s+\d+/, "#define LV_USE_OBJ_ID_BUILTIN   0");
+  // PC preview: skip ThorVG (xos cmake needs CONFIG_XOS_USE_LVGL_THORVG + TVG_STATIC).
+  next = next.replace(/#define LV_USE_VECTOR_GRAPHIC\s+\d+/, "#define LV_USE_VECTOR_GRAPHIC  0");
+  next = next.replace(/#define LV_USE_THORVG_INTERNAL\s+\d+/, "#define LV_USE_THORVG_INTERNAL 0");
+  // Match product xos blend units (rgb565/rgb888/argb8888 only).
+  for (const [key, val] of [
+    ["LV_DRAW_SW_SUPPORT_RGB565_SWAPPED", "0"],
+    ["LV_DRAW_SW_SUPPORT_RGB565A8", "0"],
+    ["LV_DRAW_SW_SUPPORT_ARGB8888_PREMULTIPLIED", "0"],
+    ["LV_DRAW_SW_SUPPORT_L8", "0"],
+    ["LV_DRAW_SW_SUPPORT_AL88", "0"],
+    ["LV_DRAW_SW_SUPPORT_I1", "0"],
+  ] as const) {
+    next = next.replace(new RegExp(`#define ${key}\\s+\\d+`), `#define ${key} ${val}`);
+  }
+  // PC preview heap: scale with resolution (widgets + layers); floor 8MB like large Beken sims.
+  if (display) {
+    const px = Math.max(1, display.width) * Math.max(1, display.height);
+    const bytesPerPx = Math.max(2, Math.ceil(colorDepth / 8));
+    const need = Math.max(8 * 1024 * 1024, px * bytesPerPx * 2 + 4 * 1024 * 1024);
+    const memMb = Math.ceil(need / (1024 * 1024));
+    next = next.replace(
+      /#define LV_MEM_SIZE\s*\([^)]+\)/,
+      `#define LV_MEM_SIZE (${memMb} * 1024 * 1024)`,
+    );
+  }
   if (next === text) return;
   fs.writeFileSync(confPath, next, "utf8");
 }
@@ -199,8 +235,10 @@ function copySdlRuntimeDll(
   logLine: (line: string) => void,
   repoRoot: string,
 ): void {
+  const toolsWin = resolveWinToolsRoot(repoRoot);
   const candidates = [
-    path.join(repoRoot, "ref/beken/lvgl_ui_designer_2.0.3/resources/tools/win/sdl2/bin/SDL2.dll"),
+    ...(toolsWin ? [path.join(toolsWin, "sdl2/bin/SDL2.dll")] : []),
+    path.join(repoRoot, "xos-package/tools/win/sdl2/bin/SDL2.dll"),
     path.join(outDir, "sdl2-src", "Release", "SDL2.dll"),
     path.join(outDir, "sdl2-src", "Debug", "SDL2d.dll"),
     path.join(outDir, "sdl2-src", "Debug", "SDL2.dll"),
@@ -296,10 +334,19 @@ export class SdlBackend implements PreviewBackend {
     fs.mkdirSync(buildDir, { recursive: true });
 
     const tpl = resolveSdlTemplate();
-    for (const name of ["CMakeLists.txt", "main.c", "hal.c", "hal.h", "lv_conf.h", "optimize_drivers.cmake", "README.md"]) {
+    for (const name of [
+      "CMakeLists.txt",
+      "main.c",
+      "hal.c",
+      "hal.h",
+      "lv_conf.h",
+      "lv_drv_conf.h",
+      "optimize_drivers.cmake",
+      "README.md",
+    ]) {
       const src = path.join(tpl, name);
       const dest = path.join(buildDir, name);
-      if (name === "lv_conf.h" && fs.existsSync(dest)) continue;
+      // Always refresh from template; patchLvConf re-applies display colorDepth.
       if (fs.existsSync(src)) copyFile(src, dest);
     }
 
@@ -309,7 +356,7 @@ export class SdlBackend implements PreviewBackend {
       loaded.project.display.height,
       loaded.project.display.colorDepth,
     );
-    patchLvConf(buildDir, loaded.project.display.colorDepth);
+    patchLvConf(buildDir, loaded.project.display.colorDepth, loaded.project.display);
 
     const relProject = path.relative(buildDir, root).replace(/\\/g, "/") || ".";
     const cache = {
@@ -406,11 +453,14 @@ export class SdlBackend implements PreviewBackend {
       : "";
 
     const loaded = openProject(projectRootAbs);
+    const lvglStamp = computeLvglStamp(lvglRoot);
+    const prevCache = readBuildCache(outDir);
     const configureFp = computeConfigureFingerprint({
       templateVersion: PREVIEW_TEMPLATE_VERSION,
       projectRoot: projectRootAbs,
       templateDir: resolveSdlTemplate(),
       lvglRoot,
+      lvglStamp,
       sdl2Root,
       repoRoot,
       display: loaded.project.display,
@@ -422,11 +472,22 @@ export class SdlBackend implements PreviewBackend {
     if (mustConfigure) {
       logLine(`[cache] configure required (${reconfigureReason(outDir, configureFp)})`);
       softCleanCmakeCache(outDir);
+      // Only wipe LVGL objects when the product tree itself changed (keep SDL objs).
+      if (prevCache?.lvglStamp && prevCache.lvglStamp !== lvglStamp) {
+        const lvglBuild = path.join(outDir, "lvgl_build");
+        if (fs.existsSync(lvglBuild)) {
+          fs.rmSync(lvglBuild, { recursive: true, force: true });
+          logLine("[cache] LVGL tree stamp changed — wiped lvgl_build (SDL cache kept)");
+        }
+      }
     } else {
       logLine("[cache] incremental build (reuse .forge/preview-build/out objects)");
     }
 
-    const buildEnv = mergePathEnv(spawnEnv(), toolchain.pathPrefix);
+    const buildEnv = {
+      ...mergePathEnv(spawnEnv(), toolchain.pathPrefix),
+      ...(toolchain.env ?? {}),
+    };
     this.stopRunningPreviews();
 
     const paths = resolveCodegenPaths(projectRootAbs, loaded.project);
@@ -480,6 +541,7 @@ export class SdlBackend implements PreviewBackend {
         configuredAt: new Date().toISOString(),
         generator: toolchain.generator,
         buildType: toolchain.buildType,
+        lvglStamp,
       });
     }
 

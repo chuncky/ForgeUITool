@@ -68,7 +68,7 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /** Size of memory available for `lv_malloc()` in bytes (>= 2kB) */
-    #define LV_MEM_SIZE (1024 * 1024)
+    #define LV_MEM_SIZE (8 * 1024 * 1024)
 
     /** Size of the memory expand for `lv_malloc()` in bytes */
     #define LV_MEM_POOL_EXPAND_SIZE 0
@@ -172,17 +172,18 @@
      * - gradients use RGB888
      * - bitmaps with transparency may use ARGB8888
      */
+    /* Match product xos-package/lvgl blend units (rgb565/rgb888/argb8888 only). */
     #define LV_DRAW_SW_SUPPORT_RGB565       1
-    #define LV_DRAW_SW_SUPPORT_RGB565_SWAPPED       1
-    #define LV_DRAW_SW_SUPPORT_RGB565A8     1
+    #define LV_DRAW_SW_SUPPORT_RGB565_SWAPPED       0
+    #define LV_DRAW_SW_SUPPORT_RGB565A8     0
     #define LV_DRAW_SW_SUPPORT_RGB888       1
     #define LV_DRAW_SW_SUPPORT_XRGB8888     1
     #define LV_DRAW_SW_SUPPORT_ARGB8888     1
-    #define LV_DRAW_SW_SUPPORT_ARGB8888_PREMULTIPLIED 1
-    #define LV_DRAW_SW_SUPPORT_L8           1
-    #define LV_DRAW_SW_SUPPORT_AL88         1
+    #define LV_DRAW_SW_SUPPORT_ARGB8888_PREMULTIPLIED 0
+    #define LV_DRAW_SW_SUPPORT_L8           0
+    #define LV_DRAW_SW_SUPPORT_AL88         0
     #define LV_DRAW_SW_SUPPORT_A8           1
-    #define LV_DRAW_SW_SUPPORT_I1           1
+    #define LV_DRAW_SW_SUPPORT_I1           0
 
     /* The threshold of the luminance to consider a pixel as
      * active in indexed color format */
@@ -507,8 +508,9 @@
 * - lv_obj_id_compare:      Compare the ID to decide if it matches with a requested value.
 * - lv_obj_stringify_id:    Return string-ified identifier, e.g. "button3".
 * - lv_obj_free_id:         Does nothing, as there is no memory allocation for the ID.
-* When disabled these functions needs to be implemented by the user.*/
-#define LV_USE_OBJ_ID_BUILTIN   1
+* When disabled these functions needs to be implemented by the user.
+* Must stay 0 when LV_USE_OBJ_ID is 0 (otherwise lv_obj_id_builtin.c fails: no obj->id). */
+#define LV_USE_OBJ_ID_BUILTIN   0
 
 /** Use obj property set/get API. */
 #define LV_USE_OBJ_PROPERTY 0
@@ -992,11 +994,12 @@
 #define LV_USE_GLTF  0
 
 /** Enable Vector Graphic APIs
- *  - Requires `LV_USE_MATRIX = 1` */
-#define LV_USE_VECTOR_GRAPHIC  1
+ *  - Requires `LV_USE_MATRIX = 1`
+ *  PC preview: keep off — xos ThorVG needs CONFIG_XOS_USE_LVGL_THORVG + TVG_STATIC. */
+#define LV_USE_VECTOR_GRAPHIC  0
 
 /** Enable ThorVG (vector graphics library) from the src/libs folder */
-#define LV_USE_THORVG_INTERNAL 1 
+#define LV_USE_THORVG_INTERNAL 0
 
 /** Enable ThorVG by assuming that its installed and linked to the project */
 #define LV_USE_THORVG_EXTERNAL 0

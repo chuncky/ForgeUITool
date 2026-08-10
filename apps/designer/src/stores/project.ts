@@ -211,6 +211,15 @@ export const useProjectStore = defineStore("project", () => {
   });
 
   const colorLibrary = computed(() => loaded.value?.project.colors ?? []);
+  const colorThemes = computed(() => loaded.value?.project.colorThemes ?? []);
+  /** Mine + palette-theme colors for @id resolve / swatches. */
+  const allNamedColors = computed(() => {
+    const out = [...colorLibrary.value];
+    for (const t of colorThemes.value) {
+      for (const c of t.colors ?? []) out.push(c);
+    }
+    return out;
+  });
 
   const styleThemes = computed(() => loaded.value?.project.themes ?? []);
   const customWidgets = computed(() => loaded.value?.project.customWidgets ?? []);
@@ -555,6 +564,16 @@ export const useProjectStore = defineStore("project", () => {
     return desktop().listSnapshots();
   }
 
+  async function fetchSnapshotPreview(id: string) {
+    return desktop().getSnapshotPreview(id);
+  }
+
+  async function deleteSnapshot(id: string) {
+    if (!loaded.value) return [];
+    const result = await desktop().deleteSnapshot(id);
+    return result.list ?? [];
+  }
+
   async function restoreSnapshot(id: string) {
     if (!loaded.value) return false;
     if (!window.confirm("恢复历史版本将覆盖当前工程文件，是否继续？")) return false;
@@ -570,13 +589,20 @@ export const useProjectStore = defineStore("project", () => {
 
   async function createNamedSnapshot(label: string) {
     if (!loaded.value) return null;
-    const result = await desktop().createSnapshot(label);
-    if (result.loaded) {
-      loaded.value = JSON.parse(JSON.stringify(result.loaded)) as SerializedProject;
+    try {
+      const result = await desktop().createSnapshot(label);
+      if (result.loaded) {
+        loaded.value = JSON.parse(JSON.stringify(result.loaded)) as SerializedProject;
+      }
+      dirty.value = false;
+      appendLog("history", "info", `已创建快照 ${result.meta.id}${label ? ` (${label})` : ""}`);
+      return result.meta;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      appendLog("history", "error", msg);
+      window.alert(msg);
+      return null;
     }
-    dirty.value = false;
-    appendLog("history", "info", `已创建快照 ${result.meta.id}${label ? ` (${label})` : ""}`);
-    return result.meta;
   }
 
   async function updateMeta(patch: Record<string, unknown>) {
@@ -640,7 +666,24 @@ export const useProjectStore = defineStore("project", () => {
     if (!node) return;
     if (patch.name !== undefined) node.name = String(patch.name);
     if (patch.frame && typeof patch.frame === "object") {
-      node.frame = { ...node.frame, ...(patch.frame as Record<string, number>) };
+      const next = { ...node.frame, ...(patch.frame as Record<string, number>) };
+      if (nid === sid) {
+        node.frame = next;
+      } else {
+        const parent = findParentNode(screen, nid) ?? screen;
+        const pw = parent.frame?.w ?? loaded.value.project.display.width;
+        const ph = parent.frame?.h ?? loaded.value.project.display.height;
+        // Keep optimistic paint inside parent — same rule as core clampFrameWithinParent.
+        const w = Math.min(Math.max(1, next.w), Math.max(1, pw));
+        const h = Math.min(Math.max(1, next.h), Math.max(1, ph));
+        node.frame = {
+          ...next,
+          w,
+          h,
+          x: Math.min(Math.max(0, next.x), Math.max(0, pw - w)),
+          y: Math.min(Math.max(0, next.y), Math.max(0, ph - h)),
+        };
+      }
     }
     if (patch.props && typeof patch.props === "object") {
       node.props = { ...node.props, ...(patch.props as Record<string, unknown>) };
@@ -694,6 +737,17 @@ export const useProjectStore = defineStore("project", () => {
 
   async function setColorLibrary(colors: Array<{ id: string; name: string; value: string }>) {
     await updateMeta({ colors });
+  }
+
+  async function setColorThemes(
+    themes: Array<{
+      id: string;
+      name: string;
+      colors: Array<{ id: string; name: string; value: string }>;
+      createdAt?: string;
+    }>,
+  ) {
+    await updateMeta({ colorThemes: themes });
   }
 
   async function setStyleThemes(
@@ -1026,6 +1080,34 @@ export const useProjectStore = defineStore("project", () => {
     appendLog("assets", "info", `已导入 ${paths.length} 个字体`);
   }
 
+  async function deleteImage(imagePath: string) {
+    const result = await desktop().deleteImage({
+      path: imagePath,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    appendLog("assets", "info", `已删除图片 ${imagePath}`);
+  }
+
+  async function deleteFont(fontId: string) {
+    const result = await desktop().deleteFont({
+      fontId,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    appendLog("assets", "info", `已删除字体 ${fontId}`);
+  }
+
+  async function pruneOrphanImages() {
+    const result = await desktop().pruneOrphanImages({
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    const n = result.removed?.length ?? 0;
+    appendLog("assets", "info", n ? `已清理 ${n} 个孤立图片文件` : "无孤立图片可清理");
+    return result.removed ?? [];
+  }
+
   async function removeSelected() {
     if (!loaded.value || !selectedId.value || selectedId.value === screenId.value) return;
     const result = await desktop().removeNode({
@@ -1142,6 +1224,19 @@ export const useProjectStore = defineStore("project", () => {
       _editor: editorContext(),
     });
     applyMutationResult(result);
+  }
+
+  async function moveNodeById(nodeId: string, newParentId: string | null, index: number) {
+    if (!loaded.value || nodeId === screenId.value) return;
+    const result = await desktop().moveNode({
+      screenId: screenId.value,
+      nodeId,
+      newParentId,
+      index,
+      _editor: editorContext(),
+    });
+    applyMutationResult(result);
+    selectedId.value = nodeId;
   }
 
   async function toggleNodeHidden(nodeId: string) {
@@ -1496,7 +1591,7 @@ export const useProjectStore = defineStore("project", () => {
   }
 
   function isContainer(node: UiNode) {
-    return node.type === "screen" || node.type === "container" || node.type === "button" || node.type === "tabview" || node.type === "tileview" || node.type === "win" || node.type === "menu";
+    return widgetSpec(node.type)?.isContainer === true;
   }
 
   return {
@@ -1525,6 +1620,8 @@ export const useProjectStore = defineStore("project", () => {
     imageAssets,
     fontAssets,
     colorLibrary,
+    colorThemes,
+    allNamedColors,
     styleThemes,
     customWidgets,
     i18nConfig,
@@ -1538,6 +1635,8 @@ export const useProjectStore = defineStore("project", () => {
     createNew,
     save,
     fetchSnapshots,
+    fetchSnapshotPreview,
+    deleteSnapshot,
     restoreSnapshot,
     createNamedSnapshot,
     updateMeta,
@@ -1548,6 +1647,7 @@ export const useProjectStore = defineStore("project", () => {
     patchSelectedStyle,
     patchDisplay,
     setColorLibrary,
+    setColorThemes,
     setStyleThemes,
     setI18n,
     setPreviewLocale,
@@ -1572,6 +1672,9 @@ export const useProjectStore = defineStore("project", () => {
     saveNodeAsCustomWidget,
     importImages,
     importFonts,
+    deleteImage,
+    deleteFont,
+    pruneOrphanImages,
     removeSelected,
     addScreen,
     renameCurrentScreen,
@@ -1583,6 +1686,7 @@ export const useProjectStore = defineStore("project", () => {
     removeCurrentScreen: removeScreenById,
     duplicateNodeById,
     moveNodeOrderById,
+    moveNodeById,
     toggleNodeHidden,
     toggleNodeLocked,
     removeNodeById,
@@ -1602,4 +1706,4 @@ export const useProjectStore = defineStore("project", () => {
   };
 });
 
-export { findNode };
+export { findNode, findParentNode };

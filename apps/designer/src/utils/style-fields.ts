@@ -10,6 +10,16 @@ export type StyleFieldDef = {
   type: "color" | "number" | "imageSrc" | "fontRef" | "enum";
   enum?: string[];
   enumLabels?: Record<string, string>;
+  /** LVGL opa fields: 0–255 with wrap stepper. */
+  min?: number;
+  max?: number;
+  wrap?: boolean;
+  /**
+   * BK: many `*_opa` are isVisible:false — hide from StyleGroup by default.
+   * `requiresImage` = only show when bg_image is set (bg_img_opacity).
+   */
+  panelVisible?: boolean;
+  requiresImage?: boolean;
 };
 
 export type StyleSubgroupDef = {
@@ -42,39 +52,43 @@ const TEXT_DECOR: StyleFieldDef = {
   enumLabels: { none: "无", underline: "下划线", strikethrough: "删除线" },
 };
 
+/** BK-hidden style opa (still seeded / CodeGen). */
+const HIDDEN_OPA = { min: 0, max: 255, wrap: true, panelVisible: false as const };
+
 /** Flat catalog (legacy helpers / docs). Prefer STYLE_SUBGROUPS for panel. */
 export const STYLE_FIELD_CATALOG: StyleFieldDef[] = [
-  { key: "bg_color", label: "背景色", type: "color" },
+  { key: "bg_color", label: "颜色&透明度", type: "color" },
   GRAD_DIR,
   { key: "bg_grad_color", label: "渐变色", type: "color" },
-  { key: "bg_opacity", label: "背景透明度", type: "number" },
+  { key: "bg_opacity", label: "背景透明度", type: "number", ...HIDDEN_OPA },
+  { key: "bg_img_opacity", label: "背景图透明度", type: "number", min: 0, max: 255, wrap: true, requiresImage: true },
   { key: "img_recolor", label: "重染色", type: "color" },
-  { key: "img_opa", label: "图片透明度", type: "number" },
-  { key: "text_color", label: "文字色", type: "color" },
-  { key: "text_opacity", label: "文字透明度", type: "number" },
+  { key: "img_opa", label: "图片透明度", type: "number", min: 0, max: 255, wrap: true },
+  { key: "text_color", label: "颜色&透明度", type: "color" },
+  { key: "text_opacity", label: "文字透明度", type: "number", ...HIDDEN_OPA },
   { key: "text_letter_space", label: "字间距", type: "number" },
   { key: "text_line_space", label: "行间距", type: "number" },
   { key: "text_font_size", label: "字号", type: "number" },
   { key: "radius", label: "圆角", type: "number" },
   { key: "clip_corner", label: "裁剪圆角", type: "number" },
   { key: "border_width", label: "边框宽度", type: "number" },
-  { key: "border_color", label: "边框颜色", type: "color" },
-  { key: "border_opacity", label: "边框透明度", type: "number" },
+  { key: "border_color", label: "颜色&透明度", type: "color" },
+  { key: "border_opacity", label: "边框透明度", type: "number", ...HIDDEN_OPA },
   { key: "shadow_width", label: "阴影宽度", type: "number" },
-  { key: "shadow_color", label: "阴影颜色", type: "color" },
-  { key: "shadow_opacity", label: "阴影透明度", type: "number" },
+  { key: "shadow_color", label: "颜色&透明度", type: "color" },
+  { key: "shadow_opacity", label: "阴影透明度", type: "number", ...HIDDEN_OPA },
   { key: "shadow_ofs_x", label: "阴影 X 偏移", type: "number" },
   { key: "shadow_ofs_y", label: "阴影 Y 偏移", type: "number" },
   { key: "pad_top", label: "上内边距", type: "number" },
   { key: "pad_right", label: "右内边距", type: "number" },
   { key: "pad_bottom", label: "下内边距", type: "number" },
   { key: "pad_left", label: "左内边距", type: "number" },
-  { key: "line_color", label: "线条颜色", type: "color" },
+  { key: "line_color", label: "颜色&透明度", type: "color" },
   { key: "line_width", label: "线条宽度", type: "number" },
-  { key: "line_opacity", label: "线条透明度", type: "number" },
+  { key: "line_opacity", label: "线条透明度", type: "number", ...HIDDEN_OPA },
   { key: "outline_width", label: "外轮廓宽度", type: "number" },
-  { key: "outline_color", label: "外轮廓颜色", type: "color" },
-  { key: "outline_opacity", label: "外轮廓透明度", type: "number" },
+  { key: "outline_color", label: "颜色&透明度", type: "color" },
+  { key: "outline_opacity", label: "外轮廓透明度", type: "number", ...HIDDEN_OPA },
 ];
 
 /**
@@ -86,11 +100,20 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     id: "background",
     title: "背景",
     fields: [
-      { key: "bg_color", label: "背景色", type: "color" },
+      { key: "bg_color", label: "颜色&透明度", type: "color" },
       GRAD_DIR,
       { key: "bg_grad_color", label: "渐变色", type: "color" },
       { key: "bg_image", label: "背景图片", type: "imageSrc" },
-      { key: "bg_opacity", label: "背景透明度", type: "number" },
+      {
+        key: "bg_img_opacity",
+        label: "背景图透明度",
+        type: "number",
+        min: 0,
+        max: 255,
+        wrap: true,
+        requiresImage: true,
+      },
+      { key: "bg_opacity", label: "背景透明度", type: "number", ...HIDDEN_OPA },
     ],
   },
   {
@@ -99,8 +122,8 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     fields: [
       { key: "text_font", label: "字体", type: "fontRef" },
       { key: "text_font_size", label: "字号", type: "number" },
-      { key: "text_color", label: "文字色", type: "color" },
-      { key: "text_opacity", label: "文字透明度", type: "number" },
+      { key: "text_color", label: "颜色&透明度", type: "color" },
+      { key: "text_opacity", label: "文字透明度", type: "number", ...HIDDEN_OPA },
       TEXT_ALIGN,
       TEXT_DECOR,
     ],
@@ -118,8 +141,8 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     title: "边框",
     fields: [
       { key: "border_width", label: "边框宽度", type: "number" },
-      { key: "border_color", label: "边框颜色", type: "color" },
-      { key: "border_opacity", label: "边框透明度", type: "number" },
+      { key: "border_color", label: "颜色&透明度", type: "color" },
+      { key: "border_opacity", label: "边框透明度", type: "number", ...HIDDEN_OPA },
       { key: "radius", label: "圆角", type: "number" },
       { key: "clip_corner", label: "裁剪圆角", type: "number" },
     ],
@@ -139,8 +162,8 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     title: "阴影",
     fields: [
       { key: "shadow_width", label: "阴影宽度", type: "number" },
-      { key: "shadow_color", label: "阴影颜色", type: "color" },
-      { key: "shadow_opacity", label: "阴影透明度", type: "number" },
+      { key: "shadow_color", label: "颜色&透明度", type: "color" },
+      { key: "shadow_opacity", label: "阴影透明度", type: "number", ...HIDDEN_OPA },
       { key: "shadow_ofs_x", label: "阴影 X 偏移", type: "number" },
       { key: "shadow_ofs_y", label: "阴影 Y 偏移", type: "number" },
     ],
@@ -150,17 +173,17 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     title: "外轮廓",
     fields: [
       { key: "outline_width", label: "宽度", type: "number" },
-      { key: "outline_color", label: "颜色", type: "color" },
-      { key: "outline_opacity", label: "透明度", type: "number" },
+      { key: "outline_color", label: "颜色&透明度", type: "color" },
+      { key: "outline_opacity", label: "透明度", type: "number", ...HIDDEN_OPA },
     ],
   },
   {
     id: "line",
     title: "线条",
     fields: [
-      { key: "line_color", label: "线条颜色", type: "color" },
+      { key: "line_color", label: "颜色&透明度", type: "color" },
       { key: "line_width", label: "线条宽度", type: "number" },
-      { key: "line_opacity", label: "线条透明度", type: "number" },
+      { key: "line_opacity", label: "线条透明度", type: "number", ...HIDDEN_OPA },
     ],
   },
   {
@@ -168,7 +191,7 @@ export const STYLE_SUBGROUPS: StyleSubgroupDef[] = [
     title: "图片",
     fields: [
       { key: "img_recolor", label: "重染色", type: "color" },
-      { key: "img_opa", label: "图片透明度", type: "number" },
+      { key: "img_opa", label: "图片透明度", type: "number", min: 0, max: 255, wrap: true },
     ],
   },
 ];
@@ -198,9 +221,6 @@ export function styleFieldsForWidget(type: string): StyleFieldDef[] {
 
 /**
  * Visible style subgroups per widget (BK `enabledGroups` parity).
- * - label: 背景/字体/间距/边框/内边距/阴影
- * - button & most: common groups (+ outline)
- * - image*: 背景/边框/图片
  */
 export function styleSubgroupsForWidget(type: string): StyleSubgroupDef[] {
   if (type === "label") {
@@ -230,4 +250,14 @@ export function visibleStyleFieldKeysForWidget(type: string): string[] | null {
     return ["shadow_width", "shadow_color"];
   }
   return null;
+}
+
+/** Whether a style field should appear in StyleGroup given current values. */
+export function isStyleFieldPanelVisible(
+  sf: StyleFieldDef,
+  opts?: { hasBgImage?: boolean },
+): boolean {
+  if (sf.panelVisible === false) return false;
+  if (sf.requiresImage && !opts?.hasBgImage) return false;
+  return true;
 }

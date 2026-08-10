@@ -64,13 +64,20 @@
   "props": {},
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#ffffffff",
+        "radius": 8,
+        "border_width": 2,
+        "border_color": "#e0e0e0ff"
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle` 写入（对齐 LVGL `theme_default` Light / `lv_obj` card），保证画布与模拟一致。
 
 ## 5. 验收要点
 

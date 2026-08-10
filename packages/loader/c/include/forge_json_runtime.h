@@ -98,6 +98,7 @@ typedef struct {
     int16_t style_shadow_ofs_x;
     int16_t style_shadow_ofs_y;
     int16_t style_bg_opacity;
+    int16_t style_bg_img_opacity;
     int16_t style_text_opacity;
     int16_t style_border_opacity;
     int16_t style_shadow_opacity;

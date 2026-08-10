@@ -67,9 +67,12 @@
           <input
             v-if="sf.type === 'number'"
             type="number"
-            min="0"
-            :value="Number(fieldValue(sf.key) ?? '')"
-            @change="onField(sf.key, $event, 'number')"
+            :min="isWrapNumber(sf) ? undefined : (sf.min ?? 0)"
+            :max="isWrapNumber(sf) ? undefined : sf.max"
+            step="1"
+            :value="numberDisplay(sf)"
+            @change="onNumberField(sf, $event)"
+            @input="onNumberField(sf, $event)"
           />
           <div v-else-if="sf.type === 'imageSrc'" class="image-row">
             <select
@@ -132,9 +135,19 @@
             <input
               type="color"
               class="color-swatch"
-              :value="colorSwatch(displayColorValue(fieldValue(sf.key), store.colorLibrary))"
+              :value="colorSwatch(displayColorValue(fieldValue(sf.key), store.allNamedColors))"
               @input="onColorField(sf.key, $event)"
             />
+            <label class="alpha-field" title="透明度 0–255（颜色 AA）；减到 0 再减循环到 255">
+              A
+              <input
+                type="number"
+                step="1"
+                :value="colorAlphaDisplay(sf.key)"
+                @change="onColorAlpha(sf.key, $event)"
+                @input="onColorAlpha(sf.key, $event)"
+              />
+            </label>
             <button type="button" class="lib-btn" title="从颜色库选择" @click="pickFromLibrary(sf.key)">
               库
             </button>
@@ -149,14 +162,21 @@
 import { computed, ref, watch } from "vue";
 import PropGroup from "./PropGroup.vue";
 import { partLabel, STYLE_STATES } from "./constants";
-import { colorSwatch, displayColorValue, toRgbaHex } from "../../utils/color";
+import { colorSwatch, displayColorValue, getColorAlpha255, setColorAlpha255, toRgbaHex, withRgbKeepAlpha } from "../../utils/color";
 import {
   readStyleProp,
   normalizeStyleParts,
   styleSubgroupsForWidget,
   visibleStyleFields,
+  isStyleFieldPanelVisible,
   type StyleFieldDef,
 } from "../../utils/style";
+import { BUILTIN_FONTS, DEFAULT_TEXT_FONT_SIZE } from "@forgeui/core/builtin-fonts";
+import {
+  DEFAULT_STYLE_OPACITY,
+  isOpacityStyleKey,
+  wrapOpacity255,
+} from "@forgeui/core/opacity";
 import { useProjectStore } from "../../stores/project";
 import { useUiStore } from "../../stores/ui";
 
@@ -197,7 +217,20 @@ const linkedTheme = computed(() => {
   return store.styleThemes.find((t) => t.id === props.styleRef);
 });
 
-const fontOptions = computed(() => store.fontAssets);
+const fontOptions = computed(() => {
+  const fromProject = store.fontAssets;
+  const byId = new Map(fromProject.map((f) => [f.id, f]));
+  for (const b of BUILTIN_FONTS) {
+    if (!byId.has(b.id)) {
+      byId.set(b.id, {
+        id: b.id,
+        path: `assets/fonts/${b.fileName}`,
+        size: DEFAULT_TEXT_FONT_SIZE,
+      });
+    }
+  }
+  return [...byId.values()];
+});
 
 const imageOptions = computed(() => store.imageAssets);
 
@@ -236,11 +269,56 @@ function toggleSubgroup(id: string) {
 }
 
 function visibleFields(fields: StyleFieldDef[]) {
-  return visibleStyleFields(props.widgetType, fields);
+  const hasBgImage = Boolean(String(fieldValue("bg_image") ?? "").trim());
+  return visibleStyleFields(props.widgetType, fields).filter((sf) =>
+    isStyleFieldPanelVisible(sf, { hasBgImage }),
+  );
 }
 
 function fieldValue(key: string) {
   return readStyleProp(props.style, part.value, state.value, key);
+}
+
+function isWrapNumber(sf: StyleFieldDef): boolean {
+  return Boolean(sf.wrap || isOpacityStyleKey(sf.key));
+}
+
+function numberDisplay(sf: StyleFieldDef): number {
+  const raw = fieldValue(sf.key);
+  if (raw == null || raw === "") {
+    if (sf.wrap || isOpacityStyleKey(sf.key)) return DEFAULT_STYLE_OPACITY;
+    return Number.NaN;
+  }
+  return Number(raw);
+}
+
+function onNumberField(sf: StyleFieldDef, e: Event) {
+  const el = e.target as HTMLInputElement;
+  let value = Number(el.value);
+  if (sf.wrap || isOpacityStyleKey(sf.key)) {
+    value = wrapOpacity255(value);
+    if (el.value !== String(value)) el.value = String(value);
+  }
+  emit("patch", part.value, state.value, { [sf.key]: value });
+}
+
+function colorAlphaDisplay(key: string): number {
+  const displayed = displayColorValue(fieldValue(key), store.allNamedColors);
+  return getColorAlpha255(displayed);
+}
+
+function onColorAlpha(key: string, e: Event) {
+  const el = e.target as HTMLInputElement;
+  const alpha = wrapOpacity255(el.value);
+  if (el.value !== String(alpha)) el.value = String(alpha);
+  const cur = String(fieldValue(key) ?? "");
+  if (cur.startsWith("@")) {
+    // Named color refs: expand to concrete hex with new AA for this part/state.
+    const resolved = displayColorValue(cur, store.allNamedColors);
+    emit("patch", part.value, state.value, { [key]: setColorAlpha255(resolved, alpha) });
+    return;
+  }
+  emit("patch", part.value, state.value, { [key]: setColorAlpha255(cur || "#000000ff", alpha) });
 }
 
 function onField(key: string, e: Event, kind: "number" | "text") {
@@ -254,7 +332,9 @@ function onPlainField(key: string, e: Event) {
 }
 
 function onColorField(key: string, e: Event) {
-  emit("patch", part.value, state.value, { [key]: `${(e.target as HTMLInputElement).value}ff` });
+  const rgb = (e.target as HTMLInputElement).value;
+  const prev = fieldValue(key);
+  emit("patch", part.value, state.value, { [key]: withRgbKeepAlpha(prev, rgb) });
 }
 
 function pickFromLibrary(key: string) {
@@ -400,9 +480,25 @@ input {
 
 .color-row {
   display: grid;
-  grid-template-columns: 1fr 32px 28px;
+  grid-template-columns: minmax(0, 1fr) 32px 52px 28px;
   gap: 6px;
   align-items: center;
+}
+
+.alpha-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.alpha-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 4px;
 }
 
 .font-row {

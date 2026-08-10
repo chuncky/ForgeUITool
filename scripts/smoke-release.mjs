@@ -269,6 +269,10 @@ async function main() {
   mustExist("forgeui-root", forgeRoot);
   mustExist("templates/sdl-sim", path.join(forgeRoot, "templates", "sdl-sim", "CMakeLists.txt"));
   mustExist("codegen templates", path.join(forgeRoot, "packages", "codegen", "templates", "c", "ui.c.hbs"));
+  mustExist(
+    "AI skill",
+    path.join(forgeRoot, "resources", "ai-skill", "forgeui-lvgl-designer", "SKILL.md"),
+  );
 
   await testRuntimeImports();
   testRuntimeProbeViaElectronAsNode();

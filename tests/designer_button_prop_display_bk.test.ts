@@ -229,6 +229,18 @@ describe("逐项 — 样式 style（实际可用）", () => {
       expect(String(real.backgroundImage)).toMatch(/^url\("data:image\/png;base64,/);
       return;
     }
+    if (key === "bg_img_opacity") {
+      const tiny =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+      const s = chrome(
+        { bg_image: tiny, bg_img_opacity: 128 },
+        {},
+        { x: 10, y: 20, w: 120, h: 40 },
+        { resolvedBgImage: tiny },
+      );
+      expect(s["--forge-bg-img-opa"]).toBeCloseTo(128 / 255, 5);
+      return;
+    }
     if (key === "radius") {
       expect(chrome({ radius: 5 }).borderRadius).toBe("5px");
       return;
@@ -250,9 +262,9 @@ describe("逐项 — 样式 style（实际可用）", () => {
         resolvedFontFamily: "forgeui-font-montserrat",
       });
       expect(s.fontFamily).toBe("forgeui-font-montserrat");
-      // 未解析项目字体时用 LVGL 默认族 Montserrat，不得把 @id 当 CSS 字体名
+      // 未解析项目字体时用产品默认族，不得把 @id 当 CSS 字体名
       const fallback = chrome({ text_font: "@montserrat" });
-      expect(String(fallback.fontFamily)).toMatch(/Montserrat/);
+      expect(String(fallback.fontFamily)).toMatch(/SourceHanSansCN-Bold|YaHei|PingFang/i);
       expect(String(fallback.fontFamily)).not.toContain("@montserrat");
       return;
     }
@@ -275,8 +287,8 @@ describe("逐项 — 样式 style（实际可用）", () => {
       return;
     }
     if (key === "text_line_space") {
-      // LVGL montserrat_14 line_height=16 + text_line_space
-      expect(chrome({ text_line_space: 6 }).lineHeight).toBe("22px");
+      // default size 16 → montserrat line_height 18 + text_line_space
+      expect(chrome({ text_line_space: 6 }).lineHeight).toBe("24px");
       expect(chrome({ text_font_size: 20, text_line_space: 4 }).lineHeight).toBe("26px");
       return;
     }

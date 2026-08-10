@@ -6,10 +6,6 @@
 /*********************
  *      INCLUDES
  *********************/
-#include <stdio.h>
-#include <errno.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
 #include "core/lv_global.h"
 #include "core/lv_obj.h"
 #include "display/lv_display_private.h"
@@ -86,6 +82,13 @@ qua_mm_system_t *g_lvgl_mm_system = NULL;
 #endif
 
 #if LV_USE_PROFILER
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#if !defined(_WIN32) && !defined(BUILD_SIMULATOR)
+#include <sys/syscall.h>
+#endif
+
 extern int g_trace_file;
 
 static void my_flush_cb(const char * buf)
@@ -105,6 +108,8 @@ static int my_get_tid_cb(void)
 {
 #ifdef CONFIG_OS_RTT
     return (int)rt_thread_self();
+#elif defined(_WIN32) || defined(BUILD_SIMULATOR)
+    return 0;
 #else
     return (pid_t)syscall(SYS_gettid);
 #endif
@@ -113,7 +118,11 @@ static int my_get_tid_cb(void)
 static int my_get_cpu_cb(void)
 {
     int cpu_id = 0;
+#if defined(_WIN32) || defined(BUILD_SIMULATOR)
+    (void)cpu_id;
+#else
     syscall(SYS_getcpu, &cpu_id, NULL);
+#endif
     return cpu_id;
 }
 #endif

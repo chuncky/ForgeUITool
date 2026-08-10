@@ -70,13 +70,19 @@
   },
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#ffffff00",
+        "line_color": "#e0e0e0ff",
+        "line_width": 2
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_LINE`）写入，对齐 LVGL `theme_default` Light，保证画布与模拟一致。
 
 ## 5. 验收要点
 

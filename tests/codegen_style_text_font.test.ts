@@ -71,7 +71,7 @@ describe("M7 text_font style codegen", () => {
     expect(fs.existsSync(path.join(tmp, "forgeui_generated/fonts/font_ui_24.h"))).toBe(true);
   });
 
-  it("text_font_size alone emits builtin montserrat (BK default family)", async () => {
+  it("text_font_size with seeded default family emits project font at that size", async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-font-onlysize-"));
     createProject({ root: tmp, name: "onlysize", fromTemplate: "blank" });
     const loaded = openProject(tmp);
@@ -93,6 +93,31 @@ describe("M7 text_font style codegen", () => {
       "utf8",
     );
     expect(screenC).toContain("lv_obj_set_style_text_font");
+    // Label seed includes @SourceHanSansCN-Bold — size-only change keeps family.
+    expect(screenC).toContain("forgeui_font_SourceHanSansCN_Bold_20");
+  });
+
+  it("text_font_size alone without family falls back to montserrat", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-font-mont-"));
+    createProject({ root: tmp, name: "mont", fromTemplate: "blank" });
+    const loaded = openProject(tmp);
+    const sid = loaded.project.defaultScreen;
+    const lbl = addChildNode(loaded, sid, sid, "label");
+    updateNodeProps(loaded, sid, lbl.id, {
+      styleKeys: {
+        part: "main",
+        state: "default",
+        props: { text_font: "", text_font_size: 20 },
+      },
+    });
+    saveProject(loaded);
+
+    const result = await generate(tmp);
+    expect(result.ok).toBe(true);
+    const screenC = fs.readFileSync(
+      path.join(tmp, "forgeui_generated/screens/screen_" + sid + ".c"),
+      "utf8",
+    );
     expect(screenC).toContain("&lv_font_montserrat_20");
   });
 });

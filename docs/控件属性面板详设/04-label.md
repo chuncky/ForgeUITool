@@ -61,8 +61,8 @@
 
 | 项 | 契约 |
 |----|------|
-| 默认字体 | 未设 `text_font` 时画布用 **Montserrat**（与 `LV_FONT_DEFAULT` / `lv_font_montserrat_14` 同族），禁止依赖系统 Segoe/Arial 冒充 |
-| 默认字号 | 未设 `text_font_size` → **14**（画布与模拟一致） |
+| 默认字体 | 未设时种子为 **`@SourceHanSansCN-Bold`**（内置 `xos-package/res/ttf`）；画布 `@font-face` 加载，禁止依赖系统 Segoe/Arial 冒充 |
+| 默认字号 | 未设 `text_font_size` → **16**（画布与模拟一致） |
 | 行高 | 对齐 LVGL montserrat `line_height`（常见 = size+2；24 等为 size+3 时用表）；再加 `text_line_space` |
 | WRAP | 固定 `frame` 宽高内换行裁切；断行位置以模拟为准，画布用同族字体逼近 |
 | 验收 | 同框同文：画布与模拟可见行数接近；字相对框的比例不得明显「画布小一圈 / 模拟撑满」 |
@@ -97,8 +97,8 @@
   "style": {
     "main": {
       "default": {
-        "text_align": "center",
-        "text_color": "#ffffffff"
+        "bg_color": "#ffffff00",
+        "text_color": "#212121ff"
       }
     }
   },
@@ -106,6 +106,8 @@
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_LABEL`）写入，对齐 LVGL `theme_default` Light（透明底 + 主题字色），保证画布与模拟一致。用户可再改对齐/字色等。
 
 ## 5. CodeGen
 
@@ -127,7 +129,7 @@
 2. 长文本：窄框 + 长文，**画布与模拟** DOTS 出省略，WRAP 在框内换行且超出高度裁切；SCROLL / SCROLL_CIRCULAR 画布为 CSS 预览，**以模拟为准**。  
 3. 样式字体对齐 Left/Center/Right → 画布对齐变化。  
 4. 改字号 → 画布变大/变小，且重新生成后模拟字号一致（非仅 CSS）。  
-5. **框比例：** 默认 Montserrat 14 + 行高 16；窄框 WRAP 下画布与模拟行数/占框比例接近（见 V1.6f）。  
+5. **框比例：** 默认 SourceHanSansCN-Bold 16 + 行高按 LVGL montserrat 表（18）；窄框 WRAP 下画布与模拟行数/占框比例接近。  
 6. 属性区**无**「文本对齐」下拉。  
 7. 勾选静态文本 → 存档后生成 C 含 `lv_label_set_text_static`。  
 8. Undo/Redo 可回退。

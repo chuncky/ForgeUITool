@@ -39,6 +39,20 @@ declare global {
         _editor?: EditorContext;
         skipHistory?: boolean;
       }) => Promise<MutationResult & { imported?: Array<{ id: string; path: string; size?: number }> }>;
+      deleteImage: (args: {
+        path: string;
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult>;
+      deleteFont: (args: {
+        fontId: string;
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult>;
+      pruneOrphanImages: (args?: {
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult & { removed?: string[] }>;
       readDoc: (id: string) => Promise<string>;
       openProject: (dir: string) => Promise<SerializedProject>;
       importForgeui: () => Promise<{
@@ -184,6 +198,14 @@ declare global {
         _editor?: EditorContext;
         skipHistory?: boolean;
       }) => Promise<MutationResult>;
+      moveNode: (args: {
+        screenId: string;
+        nodeId: string;
+        newParentId: string | null;
+        index: number;
+        _editor?: EditorContext;
+        skipHistory?: boolean;
+      }) => Promise<MutationResult>;
       setNodeFlags: (args: {
         screenId: string;
         nodeId: string;
@@ -208,7 +230,39 @@ declare global {
       undo: (editor: EditorContext) => Promise<UndoRedoResult>;
       redo: (editor: EditorContext) => Promise<UndoRedoResult>;
       historyState: () => Promise<{ canUndo: boolean; canRedo: boolean }>;
-      listSnapshots: () => Promise<Array<{ id: string; label?: string; createdAt: string }>>;
+      listSnapshots: () => Promise<
+        Array<{
+          id: string;
+          label?: string;
+          createdAt: string;
+          pageCount: number;
+          byteSize: number;
+          width?: number;
+          height?: number;
+          screenIds?: string[];
+          defaultScreen?: string;
+        }>
+      >;
+      getSnapshotPreview: (id: string) => Promise<{
+        meta: {
+          id: string;
+          label?: string;
+          createdAt: string;
+          pageCount: number;
+          byteSize: number;
+          width?: number;
+          height?: number;
+          screenIds?: string[];
+          defaultScreen?: string;
+        };
+        project: {
+          display: { width: number; height: number };
+          defaultScreen: string;
+          screens: Array<{ id: string; file: string }>;
+        };
+        screens: Record<string, import("@forgeui/core/types").ScreenDocument>;
+      }>;
+      deleteSnapshot: (id: string) => Promise<{ ok: boolean; list: Array<{ id: string; createdAt: string; pageCount: number; byteSize: number }> }>;
       createSnapshot: (label?: string) => Promise<{ ok: boolean; meta: { id: string; label?: string; createdAt: string }; loaded: SerializedProject }>;
       restoreSnapshot: (id: string) => Promise<UndoRedoResult & { ok: boolean }>;
       listCodeFiles: () => Promise<Array<{ relPath: string; editable: boolean }>>;
@@ -295,12 +349,108 @@ declare global {
         workspaceReady: boolean;
         transaction: { pending: boolean; changeCount: number };
         tools: Array<{ name: string; description: string; implemented: boolean }>;
+        hosts?: Array<{
+          id: string;
+          label: string;
+          installed: boolean;
+          launchSupported: boolean;
+          exePath?: string;
+          customExePath?: string;
+          method?: string | null;
+          mcpPath?: string;
+          skillPath?: string;
+        }>;
+        cursorEnv?: {
+          mcpInstalled: boolean;
+          skillInstalled: boolean;
+          mcpPath: string;
+          skillPath: string;
+          skillSourceReady: boolean;
+          mcpStatus?: "ok" | "outdated" | "missing";
+          skillStatus?: "ok" | "outdated" | "missing";
+          mcpAppVersion?: string;
+          skillAppVersion?: string;
+          appVersion?: string;
+          needsUpdate?: boolean;
+        };
+        hostEnvs?: Record<
+          string,
+          {
+            mcpInstalled: boolean;
+            skillInstalled: boolean;
+            mcpPath: string;
+            skillPath: string;
+            skillSourceReady?: boolean;
+            mcpStatus?: "ok" | "outdated" | "missing";
+            skillStatus?: "ok" | "outdated" | "missing";
+            mcpAppVersion?: string;
+            skillAppVersion?: string;
+            appVersion?: string;
+            needsUpdate?: boolean;
+          }
+        >;
         mcpConfigJson: string;
         bridgePing: { ok?: boolean; status?: string; error?: string };
+        appVersion?: string;
       }>;
       setupAiWorkspace: () => Promise<{ ok: boolean; aiWorkspacePath?: string; error?: string }>;
       openAiWorkspaceFolder: () => Promise<{ ok: boolean; aiWorkspacePath?: string; error?: string }>;
       pingAiBridge: () => Promise<{ ok: boolean; data?: unknown; error?: string }>;
+      listAiHosts: () => Promise<{
+        ok: boolean;
+        hosts: Array<{
+          id: string;
+          label: string;
+          installed: boolean;
+          launchSupported: boolean;
+          exePath?: string;
+          customExePath?: string;
+          method?: string | null;
+          mcpPath?: string;
+          skillPath?: string;
+        }>;
+        cursorEnv: {
+          mcpInstalled: boolean;
+          skillInstalled: boolean;
+          mcpPath: string;
+          skillPath: string;
+          skillSourceReady: boolean;
+        };
+        previewBusy: boolean;
+      }>;
+      installAiEnv: (args?: {
+        host?: string;
+      }) => Promise<{ ok: boolean; error?: string; mcp?: unknown; skill?: unknown }>;
+      uninstallAiEnv: (args?: {
+        host?: string;
+      }) => Promise<{ ok: boolean; error?: string; mcp?: unknown; skill?: unknown }>;
+      setAiCustomPath: (args?: {
+        host?: string;
+        path?: string;
+      }) => Promise<{
+        ok: boolean;
+        error?: string;
+        path?: string;
+        cleared?: boolean;
+        hosts?: unknown;
+      }>;
+      pickAiCustomPath: (args?: {
+        host?: string;
+      }) => Promise<{
+        ok: boolean;
+        canceled?: boolean;
+        error?: string;
+        path?: string;
+        hosts?: unknown;
+      }>;
+      launchAiHost: (args?: {
+        host?: string;
+      }) => Promise<{
+        ok: boolean;
+        error?: string;
+        hint?: string;
+        aiWorkspacePath?: string;
+      }>;
       onAiModelUpdated: (
         cb: (payload: { loaded: SerializedProject; pending?: boolean; changeCount?: number }) => void,
       ) => () => void;
@@ -385,6 +535,12 @@ export interface SerializedProject {
     screens: Array<{ id: string; file: string }>;
     assets?: { images?: unknown[]; fonts?: unknown[] };
     colors?: Array<{ id: string; name: string; value: string }>;
+    colorThemes?: Array<{
+      id: string;
+      name: string;
+      createdAt?: string;
+      colors: Array<{ id: string; name: string; value: string }>;
+    }>;
     themes?: Array<{
       id: string;
       name: string;

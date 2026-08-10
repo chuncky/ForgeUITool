@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   colorRefId,
+  flattenNamedColors,
   formatColorRef,
   isColorRef,
   resolveColorValue,
   slugThemeId,
   uniqueId,
+  type ColorPaletteTheme,
   type NamedColor,
 } from "./themes.js";
 
@@ -22,6 +24,22 @@ describe("themes (FR-018)", () => {
     expect(resolveColorValue("@primary", colors)).toBe("#112233ff");
     expect(resolveColorValue("#aabbccff", colors)).toBe("#aabbccff");
     expect(resolveColorValue("@missing", colors)).toBe("@missing");
+  });
+
+  it("resolves colors inside colorThemes palettes", () => {
+    const colors: NamedColor[] = [{ id: "mine", name: "Mine", value: "#111111ff" }];
+    const colorThemes: ColorPaletteTheme[] = [
+      {
+        id: "brand",
+        name: "Brand",
+        colors: [{ id: "accent", name: "Accent", value: "#ff6600ff" }],
+      },
+    ];
+    expect(resolveColorValue("@accent", colors, colorThemes)).toBe("#ff6600ff");
+    expect(flattenNamedColors(colors, colorThemes)).toHaveLength(2);
+    const updated = structuredClone(colorThemes);
+    updated[0]!.colors[0]!.value = "#00ff00ff";
+    expect(resolveColorValue("@accent", colors, updated)).toBe("#00ff00ff");
   });
 
   it("builds unique ids", () => {

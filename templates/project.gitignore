@@ -36,3 +36,7 @@ x64/
 .DS_Store
 
 # Keep generated sources (forgeui_generated/) and project JSON under version control by default.
+
+# Builtin TTFs are copied from the kit (ensureBuiltinFontsInProject); prefer not committing binaries.
+assets/fonts/*.ttf
+assets/fonts/*.otf

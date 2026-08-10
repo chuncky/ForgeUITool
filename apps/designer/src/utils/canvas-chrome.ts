@@ -5,6 +5,8 @@ import {
   CANVAS_DEFAULT_FONT_SIZE,
   canvasTextLineHeightPx,
 } from "./lvgl-font-metrics.js";
+import { getWidgetSpec } from "@forgeui/core/widgets";
+import { opacityToCss01 } from "@forgeui/core/opacity";
 import { resolveCanvasStyleProps } from "./style.js";
 import { styleSubgroupsForWidget } from "./style-fields.js";
 
@@ -52,10 +54,7 @@ export function forgeColorToCss(value: unknown, fallback?: string): string | und
 }
 
 function opa01(value: unknown): number | undefined {
-  if (value == null || value === "") return undefined;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return undefined;
-  return Math.max(0, Math.min(1, n > 1 ? n / 255 : n));
+  return opacityToCss01(value);
 }
 
 function num(value: unknown): number | undefined {
@@ -64,7 +63,7 @@ function num(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Apply LVGL 0–255 (or 0–1) opacity onto a CSS color. */
+/** Apply LVGL 0–255 opacity (already converted to 0–1) onto a CSS color. */
 export function withAlpha(cssColor: string | undefined, opa: number | undefined): string | undefined {
   if (!cssColor) return undefined;
   if (opa == null || opa >= 1) return cssColor;
@@ -77,6 +76,37 @@ export function withAlpha(cssColor: string | undefined, opa: number | undefined)
     return `rgba(${r}, ${g}, ${b}, ${opa})`;
   }
   return cssColor;
+}
+
+export type FillBackgroundResult = {
+  /** CSS color or linear-gradient(...) */
+  fill: string;
+  isGradient: boolean;
+};
+
+/**
+ * Solid / gradient fill from style props (BK bg_color + bg_grad_* + bg_opa).
+ * Shared by widget chrome and screen root.
+ */
+export function buildFillBackground(
+  def: Record<string, unknown>,
+  opts?: { colorFallback?: string; bgOpacity?: unknown },
+): FillBackgroundResult {
+  const bgOpa = opa01(opts?.bgOpacity ?? def.bg_opacity);
+  const fallback = opts?.colorFallback;
+  const bgColor = forgeColorToCss(def.bg_color, fallback) ?? fallback ?? "transparent";
+  const gradColor = forgeColorToCss(def.bg_grad_color);
+  const gradDir = String(def.bg_grad_dir ?? "none").toLowerCase();
+  const start = withAlpha(bgColor, bgOpa) ?? bgColor;
+  if (gradColor && (gradDir === "hor" || gradDir === "horizontal")) {
+    const end = withAlpha(gradColor, bgOpa) ?? gradColor;
+    return { fill: `linear-gradient(to right, ${start}, ${end})`, isGradient: true };
+  }
+  if (gradColor && (gradDir === "ver" || gradDir === "vertical")) {
+    const end = withAlpha(gradColor, bgOpa) ?? gradColor;
+    return { fill: `linear-gradient(to bottom, ${start}, ${end})`, isGradient: true };
+  }
+  return { fill: start, isGradient: false };
 }
 
 function textAlignCss(value: unknown): string | undefined {
@@ -103,6 +133,7 @@ function flexJustify(align: string | undefined): string {
 /**
  * Map node frame + style + preview_state → CSS for approximate canvas chrome.
  * Used by WidgetView; unit-tested for button property coverage (FR-016e).
+ * Missing style keys fall back to WidgetSpec.defaultStyle (LVGL theme_default Light).
  */
 export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeStyle {
   const f = input.liveFrame ?? input.frame;
@@ -114,34 +145,27 @@ export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeS
   const rot = preview?.rotation ?? f.rotation;
   const previewState = String(input.props?.preview_state ?? "default").toLowerCase();
   const def = resolveCanvasStyleProps(input.style, previewState);
+  const seed = getWidgetSpec(input.type)?.defaultStyle?.main?.default ?? {};
   const isButton = input.type === "button";
 
-  const bgOpa = opa01(def.bg_opacity);
   const textOpa = opa01(def.text_opacity);
   const borderOpa = opa01(def.border_opacity);
   const shadowOpa = opa01(def.shadow_opacity);
   const outlineOpa = opa01(def.outline_opacity);
 
-  const bgColor = forgeColorToCss(def.bg_color, isButton ? "#334e68" : undefined);
-  const gradColor = forgeColorToCss(def.bg_grad_color);
-  const gradDir = String(def.bg_grad_dir ?? "none").toLowerCase();
-  let background: string | undefined = withAlpha(bgColor, bgOpa) ?? (isButton ? "#334e68" : "transparent");
-  if (gradDir === "hor" && bgColor && gradColor) {
-    background = `linear-gradient(to right, ${withAlpha(bgColor, bgOpa)}, ${withAlpha(gradColor, bgOpa)})`;
-  } else if (gradDir === "ver" && bgColor && gradColor) {
-    background = `linear-gradient(to bottom, ${withAlpha(bgColor, bgOpa)}, ${withAlpha(gradColor, bgOpa)})`;
-  }
+  const seedBg = typeof seed.bg_color === "string" ? seed.bg_color : undefined;
+  const bgFallback = seedBg ?? (isButton ? "#2196F3ff" : undefined);
+  const { fill: background, isGradient } = buildFillBackground(def, {
+    colorFallback: bgFallback,
+    bgOpacity: def.bg_opacity,
+  });
 
-  // FR-016e-a: only usable data URLs — never raw assets/ paths (Vite origin 404).
-  const resolved =
-    (isUsableDataUrl(input.resolvedBgImage) && input.resolvedBgImage) ||
-    (isUsableDataUrl(def.bg_image) && String(def.bg_image)) ||
-    "";
-  const backgroundImage = resolved ? `url("${resolved}")` : undefined;
-
-  const radius = num(def.radius);
-  const borderW = num(def.border_width);
-  const borderColor = withAlpha(forgeColorToCss(def.border_color, "#94a3b8"), borderOpa);
+  const radius = num(def.radius ?? seed.radius);
+  const borderW = num(def.border_width ?? seed.border_width);
+  const borderColor = withAlpha(
+    forgeColorToCss(def.border_color ?? seed.border_color, "#94a3b8"),
+    borderOpa,
+  );
   const shadowW = num(def.shadow_width);
   const shadowColor = withAlpha(forgeColorToCss(def.shadow_color, "#000000"), shadowOpa ?? 0.35);
   const shadowX = num(def.shadow_ofs_x) ?? 0;
@@ -158,7 +182,9 @@ export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeS
   const align =
     textAlignCss(def.text_align) ??
     // legacy projects may still have props.text_align (removed from registry)
-    textAlignCss(input.props?.text_align);
+    textAlignCss(input.props?.text_align) ??
+    // button-like captions: full-width .btn-label needs explicit textAlign
+    (isButton ? "center" : undefined);
   const letter = num(def.text_letter_space);
   const lineSpace = num(def.text_line_space);
   const decor = textDecorCss(def.text_decor);
@@ -167,6 +193,9 @@ export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeS
   const fontFamily =
     (typeof input.resolvedFontFamily === "string" && input.resolvedFontFamily.trim()) ||
     CANVAS_DEFAULT_FONT_FAMILY;
+
+  const seedText = typeof seed.text_color === "string" ? seed.text_color : undefined;
+  const textColorFallback = seedText ?? (isButton ? "#ffffffff" : "#F0F4F8");
 
   const flags = Array.isArray(input.props?.lvgl_flags)
     ? (input.props!.lvgl_flags as unknown[]).map((flag) => String(flag).toUpperCase())
@@ -202,6 +231,17 @@ export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeS
   // Match LVGL montserrat line_height (e.g. 14→16), not CSS size×1.3
   const lineHeightPx = canvasTextLineHeightPx(fontSize, lineSpace);
 
+  // FR-016e-a: only usable data URLs — never raw assets/ paths (Vite origin 404).
+  const resolved =
+    (isUsableDataUrl(input.resolvedBgImage) && input.resolvedBgImage) ||
+    (isUsableDataUrl(def.bg_image) && String(def.bg_image)) ||
+    "";
+  const hasBgImage = Boolean(resolved);
+  // Image longhands are for WidgetView layer split (BG_IMAGE_LAYER_KEYS); fill stays
+  // on background / backgroundColor so gradient is not wiped by url(...).
+  const backgroundImage = hasBgImage ? `url("${resolved}")` : undefined;
+  const bgImgOpa01 = opacityToCss01(def.bg_img_opacity) ?? 1;
+
   const style: CanvasChromeStyle = {
     left: `${x}px`,
     top: `${y}px`,
@@ -209,13 +249,17 @@ export function buildWidgetCanvasChrome(input: CanvasChromeInput): CanvasChromeS
     height: `${h}px`,
     transform: rot ? `rotate(${rot}deg)` : undefined,
     transformOrigin: "center center",
-    color: withAlpha(forgeColorToCss(def.text_color, "#F0F4F8"), textOpa) ?? "#F0F4F8",
-    background,
+    color: withAlpha(forgeColorToCss(def.text_color ?? seedText, textColorFallback), textOpa) ?? textColorFallback,
+    ...(hasBgImage && !isGradient
+      ? { backgroundColor: background }
+      : { background }),
     backgroundImage,
     backgroundSize: backgroundImage ? "cover" : undefined,
     backgroundPosition: backgroundImage ? "center" : undefined,
     backgroundRepeat: backgroundImage ? "no-repeat" : undefined,
-    borderRadius: radius != null ? `${radius}px` : isButton ? "6px" : undefined,
+    /** Consumed by WidgetView bg layer (not a CSS longhand). */
+    ["--forge-bg-img-opa" as string]: hasBgImage ? bgImgOpa01 : undefined,
+    borderRadius: radius != null ? `${radius}px` : undefined,
     overflow: num(def.clip_corner) ? "hidden" : undefined,
     border:
       borderW != null && borderW > 0
@@ -277,6 +321,15 @@ export const CANVAS_CHROME_SHELL_KEYS = [
   "cursor",
 ] as const;
 
+/** CSS keys moved from body onto the independent bg-image layer in WidgetView. */
+export const BG_IMAGE_LAYER_KEYS = [
+  "backgroundImage",
+  "backgroundSize",
+  "backgroundPosition",
+  "backgroundRepeat",
+  "--forge-bg-img-opa",
+] as const;
+
 /**
  * Split chrome so selection handles can live on an overflow:visible shell
  * while long_mode / clip_corner overflow stays on the body (BK CanvasComponent).
@@ -299,6 +352,43 @@ export function splitCanvasChrome(style: CanvasChromeStyle): {
   body.height = "100%";
   body.boxSizing = "border-box";
   return { shell, body };
+}
+
+/** Body style without image longhands (image painted on a sibling layer). */
+export function bodyStyleWithoutBgImage(body: CanvasChromeStyle): CanvasChromeStyle {
+  const next: CanvasChromeStyle = { ...body };
+  for (const key of BG_IMAGE_LAYER_KEYS) {
+    delete next[key];
+  }
+  return next;
+}
+
+/** Independent bg-image layer — BK bg_img_src + bg_img_opa. */
+export function buildBgImageLayerStyle(
+  dataUrl: string,
+  imgOpa01: number | undefined,
+  borderRadius?: string | number,
+): CanvasChromeStyle {
+  return {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 0,
+    pointerEvents: "none",
+    backgroundImage: `url("${dataUrl}")`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    opacity: imgOpa01 ?? 1,
+    borderRadius:
+      borderRadius == null
+        ? undefined
+        : typeof borderRadius === "number"
+          ? `${borderRadius}px`
+          : borderRadius,
+  };
 }
 
 /** Style keys exposed for button in the property panel (must paint on canvas). */

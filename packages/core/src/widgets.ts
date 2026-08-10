@@ -1,3 +1,6 @@
+import { DEFAULT_FONT_STYLE_PROPS } from "./builtin-fonts.js";
+import { DEFAULT_OPACITY_STYLE_PROPS, DEFAULT_STYLE_OPACITY } from "./opacity.js";
+
 export type WidgetCategoryId = "layout" | "button" | "display" | "input" | "media" | "viz";
 
 export type PropSpecType =
@@ -62,7 +65,117 @@ export interface WidgetSpec {
   /** V1-B inline extraData editor kind (FR-016b) */
   extraDataEditor?: ExtraDataEditorKind;
   defaultExtraData?: Record<string, unknown>;
+  /**
+   * Seeded into node.style on add (FR-016e / canvas↔sim parity).
+   * Align with LVGL `theme_default` Light used by PC preview (`LV_THEME_DEFAULT_DARK 0`).
+   */
+  defaultStyle?: {
+    main?: { default?: Record<string, unknown> };
+    [part: string]: { default?: Record<string, unknown>; [state: string]: Record<string, unknown> | undefined } | undefined;
+  };
 }
+
+/** LVGL theme_default Light — tokens used by PC preview (`LV_THEME_DEFAULT_DARK 0`). */
+export const LVGL_THEME_LIGHT = {
+  /** lv_color_white() card */
+  cardBg: "#ffffffff",
+  /** RADIUS_DEFAULT @ typical DPI (non-LARGE) */
+  cardRadius: 8,
+  /** ~lv_palette_lighten(GREY, 2) */
+  cardBorder: "#e0e0e0ff",
+  cardBorderWidth: 2,
+  /** LIGHT_COLOR_TEXT ≈ palette darken GREY 4 */
+  text: "#212121ff",
+  /** LIGHT_COLOR_SCR ≈ palette lighten GREY 4 */
+  scrBg: "#f5f5f5ff",
+  /** LIGHT_COLOR_GREY */
+  grey: "#e0e0e0ff",
+  /** lv_palette_main(BLUE) */
+  primary: "#2196F3ff",
+  primaryText: "#ffffffff",
+  /** primary @ ~20% opa (bg_color_primary_muted) */
+  primaryMuted: "#2196F333",
+  btnRadius: 8,
+  /** LV_RADIUS_CIRCLE stand-in for canvas */
+  circleRadius: 9999,
+} as const;
+
+type StyleSeed = NonNullable<WidgetSpec["defaultStyle"]>;
+
+function styleMain(defaults: Record<string, unknown>): StyleSeed {
+  return {
+    main: {
+      default: {
+        ...DEFAULT_FONT_STYLE_PROPS,
+        ...DEFAULT_OPACITY_STYLE_PROPS,
+        ...defaults,
+      },
+    },
+  };
+}
+
+/** theme card (lv_obj / textarea / list / …) */
+export const STYLE_SEED_CARD = styleMain({
+  bg_color: LVGL_THEME_LIGHT.cardBg,
+  radius: LVGL_THEME_LIGHT.cardRadius,
+  border_width: LVGL_THEME_LIGHT.cardBorderWidth,
+  border_color: LVGL_THEME_LIGHT.cardBorder,
+  text_color: LVGL_THEME_LIGHT.text,
+});
+
+/** theme btn + primary — BK: caption centered */
+export const STYLE_SEED_BTN_PRIMARY = styleMain({
+  bg_color: LVGL_THEME_LIGHT.primary,
+  text_color: LVGL_THEME_LIGHT.primaryText,
+  radius: LVGL_THEME_LIGHT.btnRadius,
+  text_align: "center",
+});
+
+/** theme scr (tabview / tileview / keyboard) */
+export const STYLE_SEED_SCR = styleMain({
+  bg_color: LVGL_THEME_LIGHT.scrBg,
+  text_color: LVGL_THEME_LIGHT.text,
+});
+
+/** switch track grey + circle */
+export const STYLE_SEED_SWITCH = styleMain({
+  bg_color: LVGL_THEME_LIGHT.grey,
+  radius: LVGL_THEME_LIGHT.circleRadius,
+});
+
+/** bar / slider track (primary muted + circle) */
+export const STYLE_SEED_BAR_TRACK = styleMain({
+  bg_color: LVGL_THEME_LIGHT.primaryMuted,
+  radius: LVGL_THEME_LIGHT.circleRadius,
+});
+
+/** label: transparent fill, theme text (sim inherits; canvas needs explicit color) */
+export const STYLE_SEED_LABEL = styleMain({
+  bg_color: "#ffffff00",
+  /** CodeGen uses bg_opa; AA on bg_color is ignored by lv_color_hex — keep fill transparent. */
+  bg_opacity: 0,
+  text_color: LVGL_THEME_LIGHT.text,
+});
+
+/** line uses theme line color (grey) */
+export const STYLE_SEED_LINE = styleMain({
+  bg_color: "#ffffff00",
+  line_color: LVGL_THEME_LIGHT.grey,
+  line_width: 2,
+  line_opacity: DEFAULT_STYLE_OPACITY,
+});
+
+/** led — bright circle */
+export const STYLE_SEED_LED = styleMain({
+  bg_color: LVGL_THEME_LIGHT.primary,
+  radius: LVGL_THEME_LIGHT.circleRadius,
+});
+
+/** transparent / no card (image, arc shell, etc.) */
+export const STYLE_SEED_TRANSPARENT = styleMain({
+  bg_color: "#ffffff00",
+  img_opa: DEFAULT_STYLE_OPACITY,
+});
 
 export interface WidgetCategoryGroup {
   category: WidgetCategoryId;
@@ -95,6 +208,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: ["CLICKED"],
     codegen: { templatePartial: "widgets/container" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "label",
@@ -135,6 +249,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/label" },
+    defaultStyle: STYLE_SEED_LABEL,
   },
   {
     type: "button",
@@ -142,7 +257,7 @@ const MVP: WidgetSpec[] = [
     icon: "button",
     lvgl: { create: "lv_button_create", major: [9] },
     label: { "zh-CN": "按钮", en: "Button" },
-    isContainer: true,
+    isContainer: false,
     defaultFrame: { w: 100, h: 40 },
     props: [
       { name: "text", type: "text", label: "文本", default: "Button" },
@@ -168,6 +283,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: ["CLICKED", "PRESSED", "RELEASED", "LONG_PRESSED"],
     codegen: { templatePartial: "widgets/button" },
+    defaultStyle: STYLE_SEED_BTN_PRIMARY,
   },
   {
     type: "image",
@@ -182,6 +298,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: ["CLICKED"],
     codegen: { templatePartial: "widgets/image" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "slider",
@@ -211,6 +328,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator", "knob"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/slider" },
+    defaultStyle: STYLE_SEED_BAR_TRACK,
   },
   {
     type: "switch",
@@ -225,6 +343,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator", "knob"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/switch" },
+    defaultStyle: STYLE_SEED_SWITCH,
   },
   {
     type: "checkbox",
@@ -245,6 +364,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/checkbox" },
+    defaultStyle: STYLE_SEED_LABEL,
   },
   {
     type: "bar",
@@ -274,6 +394,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator"],
     events: [],
     codegen: { templatePartial: "widgets/bar" },
+    defaultStyle: STYLE_SEED_BAR_TRACK,
   },
   {
     type: "arc",
@@ -300,6 +421,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator", "knob"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/arc" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "dropdown",
@@ -324,6 +446,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "items",
     defaultExtraData: { items: [{ text: "One" }, { text: "Two" }, { text: "Three" }] },
     codegen: { templatePartial: "widgets/dropdown" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "textarea",
@@ -350,6 +473,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "scrollbar"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/textarea" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "list",
@@ -365,6 +489,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "items",
     defaultExtraData: { items: [{ text: "Item 1" }, { text: "Item 2" }] },
     codegen: { templatePartial: "widgets/list" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "roller",
@@ -396,6 +521,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "items",
     defaultExtraData: { items: [{ text: "A" }, { text: "B" }, { text: "C" }] },
     codegen: { templatePartial: "widgets/roller" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "imagebutton",
@@ -418,6 +544,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: ["CLICKED"],
     codegen: { templatePartial: "widgets/imagebutton" },
+    defaultStyle: STYLE_SEED_BTN_PRIMARY,
   },
   {
     type: "spinner",
@@ -438,6 +565,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "indicator"],
     events: [],
     codegen: { templatePartial: "widgets/spinner" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "tabview",
@@ -467,6 +595,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "tabs",
     defaultExtraData: { tabs: [{ name: "Tab 1" }, { name: "Tab 2" }], selectedTabIndex: 0 },
     codegen: { templatePartial: "widgets/tabview" },
+    defaultStyle: STYLE_SEED_SCR,
   },
   {
     type: "keyboard",
@@ -504,6 +633,7 @@ const MVP: WidgetSpec[] = [
       ],
     },
     codegen: { templatePartial: "widgets/keyboard" },
+    defaultStyle: STYLE_SEED_SCR,
   },
   {
     type: "msgbox",
@@ -526,6 +656,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "buttons",
     defaultExtraData: { buttons: [{ text: "OK" }, { text: "Cancel" }] },
     codegen: { templatePartial: "widgets/msgbox" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "line",
@@ -546,6 +677,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/line" },
+    defaultStyle: STYLE_SEED_LINE,
   },
   {
     type: "led",
@@ -566,6 +698,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/led" },
+    defaultStyle: STYLE_SEED_LED,
   },
   {
     type: "animimg",
@@ -590,6 +723,7 @@ const MVP: WidgetSpec[] = [
       frames: [{ src: "assets/images/frame1.png" }, { src: "assets/images/frame2.png" }, { src: "assets/images/frame3.png" }],
     },
     codegen: { templatePartial: "widgets/animimg" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "spinbox",
@@ -618,6 +752,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "cursor"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/spinbox" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "canvas",
@@ -636,6 +771,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/canvas" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "qrcode",
@@ -660,6 +796,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/qrcode" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "barcode",
@@ -680,6 +817,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/barcode" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "digitalclock",
@@ -709,6 +847,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main"],
     events: [],
     codegen: { templatePartial: "widgets/digitalclock" },
+    defaultStyle: STYLE_SEED_LABEL,
   },
   {
     type: "tileview",
@@ -724,6 +863,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "tabs",
     defaultExtraData: { tabs: [{ name: "Tile 1" }, { name: "Tile 2" }] },
     codegen: { templatePartial: "widgets/tileview" },
+    defaultStyle: STYLE_SEED_SCR,
   },
   {
     type: "win",
@@ -744,6 +884,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "main_header", "main_content", "main_button"],
     events: ["CLICKED"],
     codegen: { templatePartial: "widgets/win" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "menu",
@@ -759,6 +900,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "items",
     defaultExtraData: { items: [{ text: "Home" }, { text: "Settings" }] },
     codegen: { templatePartial: "widgets/menu" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "spangroup",
@@ -774,6 +916,7 @@ const MVP: WidgetSpec[] = [
     extraDataEditor: "items",
     defaultExtraData: { items: [{ text: "Span 1" }, { text: "Span 2" }] },
     codegen: { templatePartial: "widgets/spangroup" },
+    defaultStyle: STYLE_SEED_LABEL,
   },
   {
     type: "table",
@@ -802,6 +945,7 @@ const MVP: WidgetSpec[] = [
       ],
     },
     codegen: { templatePartial: "widgets/table" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "buttonmatrix",
@@ -822,6 +966,7 @@ const MVP: WidgetSpec[] = [
       items: [{ text: "1" }, { text: "2" }, { text: "3" }, { text: "4" }, { text: "5" }, { text: "6" }],
     },
     codegen: { templatePartial: "widgets/buttonmatrix" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "scale",
@@ -864,6 +1009,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "items", "indicator"],
     events: [],
     codegen: { templatePartial: "widgets/scale" },
+    defaultStyle: STYLE_SEED_TRANSPARENT,
   },
   {
     type: "calendar",
@@ -886,6 +1032,7 @@ const MVP: WidgetSpec[] = [
     styleParts: ["main", "main_header", "main_buttonmatrix", "items_buttonmatrix"],
     events: ["VALUE_CHANGED"],
     codegen: { templatePartial: "widgets/calendar" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "linechart",
@@ -919,6 +1066,7 @@ const MVP: WidgetSpec[] = [
       series: [{ name: "Series 1", color: "#4a90e2", values: [10, 20, 30, 40, 50, 10, 30, 50, 30, 10] }],
     },
     codegen: { templatePartial: "widgets/linechart" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "barchart",
@@ -952,6 +1100,7 @@ const MVP: WidgetSpec[] = [
       series: [{ name: "Series 1", color: "#50c878", values: [10, 20, 30, 40, 50, 10, 30, 50, 30, 10] }],
     },
     codegen: { templatePartial: "widgets/barchart" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "scatterchart",
@@ -985,6 +1134,7 @@ const MVP: WidgetSpec[] = [
       series: [{ name: "Series 1", color: "#e94e77", values: [10, 20, 30, 40, 50, 10, 30, 50, 30, 10] }],
     },
     codegen: { templatePartial: "widgets/scatterchart" },
+    defaultStyle: STYLE_SEED_CARD,
   },
   {
     type: "chart",
@@ -1023,6 +1173,7 @@ const MVP: WidgetSpec[] = [
       ],
     },
     codegen: { templatePartial: "widgets/chart" },
+    defaultStyle: STYLE_SEED_CARD,
   },
 ];
 

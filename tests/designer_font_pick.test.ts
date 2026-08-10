@@ -14,7 +14,8 @@ describe("V1-B text_font asset picker", () => {
     expect(ui).toContain("openAssetsForFontPick");
     expect(ui).toContain("pickFontAsset");
     expect(assets).toContain("fontPickHandler");
-    expect(assets).toContain("onPickFont");
+    expect(assets).toContain("onFontClick");
+    expect(assets).toContain("pickFontAsset");
     expect(style).toContain("pickFont");
     expect(style).toContain("fontOptions");
     expect(style).toContain("@${fontId}");

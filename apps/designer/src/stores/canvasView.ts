@@ -14,6 +14,10 @@ export const useCanvasViewStore = defineStore("canvasView", () => {
   const showRulers = ref(true);
   const showGrid = ref(true);
   const showPointerCoords = ref(true);
+  /** BK 工作台「隐藏事件连线」反转；当前画布可无连线渲染，仍持久化偏好。 */
+  const showEventLinks = ref(true);
+  /** Alignment guide threshold in px (1–5). */
+  const alignSnapPx = ref(2);
   const viewMenuOpen = ref(false);
   const pointer = ref<{ x: number; y: number } | null>(null);
 
@@ -89,6 +93,8 @@ export const useCanvasViewStore = defineStore("canvasView", () => {
     showRulers,
     showGrid,
     showPointerCoords,
+    showEventLinks,
+    alignSnapPx,
     viewMenuOpen,
     pointer,
     setZoom,

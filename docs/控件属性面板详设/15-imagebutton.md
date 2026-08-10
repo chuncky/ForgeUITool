@@ -72,13 +72,19 @@
   },
   "style": {
     "main": {
-      "default": {}
+      "default": {
+        "bg_color": "#2196F3ff",
+        "text_color": "#ffffffff",
+        "radius": 8
+      }
     }
   },
   "events": [],
   "children": []
 }
 ```
+
+添加时由 `WidgetSpec.defaultStyle`（`STYLE_SEED_BTN_PRIMARY`）写入，对齐 LVGL `theme_default` Light，保证画布与模拟一致。
 
 ## 5. 验收要点
 

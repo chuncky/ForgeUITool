@@ -2,15 +2,17 @@
 
 > **文档类型：** 模块详细设计（Designer / 属性检查器子系统）  
 > **产品暂名：** ForgeUI Kit  
-> **版本：** V1.6j  
-> **日期：** 2026-08-06  
+> **版本：** V1.6l  
+> **日期：** 2026-08-07  
+> **V1.6l：** 分册 `03-button.md`：`isContainer=false`（与 Core / 树拖拽 / MCP 父规则对齐；文案用 `props.text`）。  
+> **V1.6k：** 新建控件写入 `WidgetSpec.defaultStyle`（对齐 LVGL `theme_default` Light），画布缺省回退同源种子，避免「画布透明 / 模拟有主题色」。见 §5.4；分册 JSON 已同步。  
 > **V1.6j：** 旋转锚点补**箭头图示**（放大圆柄 + 内联 SVG，对标 Beken；避免仅实心点无语义）。  
 > **V1.6i：** 对齐 Beken：selection chrome 与内容层分离（外壳不裁切 + 选中 z-index）；修复手柄被 overflow 裁成「长方形」/旋转柄不可见。  
 > **V1.6h：** 缩放手柄恢复纯色方块；画布增加**旋转锚点**（顶边上方圆柄，绕中心改 `frame.rotation`）。  
 > **V1.6g：** 画布选中 **8 向缩放手柄**（对标 Beken 四角+四边）；见详设 §9.7 / 属性面板详设 §8。  
 > **V1.6f：** 画布↔模拟字号/框比例：默认 Montserrat（对齐 `LV_FONT_DEFAULT`）；行高按 LVGL montserrat `line_height`（非 ×1.3）；见 `04-label.md`。  
 > **V1.6e：** 长文本/字号对标 BK 收口——`long_mode` 画布+模拟；按钮子 label `LV_PCT(100)`；`text_font`+`text_font_size` 进 CodeGen；画布默认字号 14、WRAP 框内裁切。  
-> **V1.6d：** 样式库对标 BK：`SaveStyleDialog` / `StyleLibraryDialog`（名称/描述/预览/应用/删除）；颜色库与样式库分离。  
+> **V1.6d：** 样式库对标 BK：`SaveStyleDialog` / `StyleLibraryDialog`（名称/描述/预览/应用/删除）；**样式**主题不在颜色库内（颜色库可有独立的 **色板主题** `colorThemes`，见主详设 V1.29）。  
 > **V1.6c：** 样式子组对标 BK——独立「间距」；圆角归「边框」；label 暴露完整六组；子组「显示/隐藏」同步展开/收起编辑区（无左侧三角）。  
 > **V1.6：** §3.5 锁定位置信息 3×3 格：**示意方位** + **吸附到父容器九宫**（对标 Beken；纠正「九格同图 / 仅改锚点不移动」）。  
 > **V1.6b：** 标签 `label` 对标 BK——对齐仅样式 `text_align`；`long_mode` 画布可见；补 `is_text_static`；厘清显示名≠文本（见分册 `04-label.md`）。  
@@ -388,17 +390,17 @@ CodeGen 将 `CALL_FUNCTION` 生成对 `<codegenDir>/custom/ui_events.c` 桩的�
 
 | 层 | 路径 | 职责 |
 |----|------|------|
-| 注册表 | `packages/core/src/widgets.ts` | `WidgetSpec[]`：props、styleParts、events、codegen |
+| 注册表 | `packages/core/src/widgets.ts` | `WidgetSpec[]`：props、styleParts、events、codegen、**defaultStyle** |
 | Designer 镜像 | Main `listWidgets` IPC → `projectStore.widgets` | 启动/开工程后缓存 |
 | 查询 | `projectStore.widgetSpec(type)` | PropPanel 取 `props`、events 白名单 |
 
 **扩展流程（V1 38 控件）：**
 
 1. 从 Beken `component-specs/{type}/{type}.md` 提取 `general` 字段 → `PropSpec[]`。  
-2. 补充 `styleParts`、`events`、`extraData` schema。  
+2. 补充 `styleParts`、`events`、`extraData` schema、**`defaultStyle` 种子**（对齐 `theme_default` Light，见 §5.4）。  
 3. 增加 CodeGen `templatePartial`。  
-4. 在用户手册 §5 补字段说明 + 截图索引。  
-5. 校验器 + 黄金工程用例覆盖。
+4. 在用户手册 §5 与 `docs/控件属性面板详设/` 补字段说明 + JSON 示例。  
+5. 校验器 + 黄金工程用例覆盖（含 `designer_widget_default_styles`）。
 
 ### 5.2 PropSpec 类型 → UI 控件
 
@@ -420,6 +422,33 @@ CodeGen 将 `CALL_FUNCTION` 生成对 `<codegenDir>/custom/ui_events.c` 桩的�
 `widgets.ts` 已覆盖用户手册 §5.0 全部 **38** 种可添加控件（`container` 对标 Beken `obj`）+ `screen` 页面根。
 
 完整 props / Part / extraData 以各控件分册与用户手册 §5.0 为准。
+
+### 5.4 新建控件默认样式（画布 ↔ 模拟）
+
+**问题：** 若 `style: {}`，画布按「缺 `bg_color` → 透明」渲染；PC 模拟走 LVGL `theme_default` Light，容器呈白卡片、按钮呈主色等 → **同工程两边外观不一致**。
+
+**契约：**
+
+| 环节 | 行为 |
+|------|------|
+| `WidgetSpec.defaultStyle` | 各可添加控件在 `widgets.ts` 声明种子（`STYLE_SEED_*`，token 见 `LVGL_THEME_LIGHT`） |
+| `addChildNode`（`mutate.ts`） | `structuredClone(spec.defaultStyle)` 写入新节点；无种子则 `{}` |
+| 画布 chrome（`canvas-chrome.ts`） | 节点缺键时回退 `getWidgetSpec(type).defaultStyle.main.default` |
+| CodeGen / 模拟 | 工程 JSON 已含显式样式；与主题叠加时以工程值为准 |
+
+**种子族（与 LVGL Light 对应关系）：**
+
+| 常量 | 典型控件 | 要点 |
+|------|----------|------|
+| `STYLE_SEED_CARD` | container / textarea / list / … | 白底、radius 8、灰边 2、字色 `#212121` |
+| `STYLE_SEED_BTN_PRIMARY` | button / imagebutton | `#2196F3` 底 + 白字 + radius 8 |
+| `STYLE_SEED_SCR` | tabview / keyboard / tileview | 屏灰底 `#f5f5f5` |
+| `STYLE_SEED_SWITCH` | switch | 灰轨 + 圆形 radius |
+| `STYLE_SEED_BAR_TRACK` | bar / slider | primary muted + 圆形 |
+| `STYLE_SEED_LABEL` | label / checkbox / … | 透明底 + 主题字色 |
+| `STYLE_SEED_LINE` / `LED` / `TRANSPARENT` | line / led / image / arc / … | 见 `widgets.ts` |
+
+分册 `docs/控件属性面板详设/0x-*.md` §4 JSON 示例须与种子一致。回归：`tests/designer_widget_default_styles.test.ts`、`designer_container_default_style.test.ts`。
 
 ---
 
@@ -462,7 +491,7 @@ Part/State 由 `StyleGroup` 下拉选择；默认 `main` + `default`。
 
 1. 属性「样式」→ **保存** → `SaveStyleDialog`（名称必填 ≤50、描述可选 ≤200、样式图标预览）→ 写入 `project.themes[]`（含 `createdAt` / `description` / 当前 Part×State `props`）。  
 2. **样式库** → `StyleLibraryDialog` 列表（缩略图、名称、描述、创建时间、应用/删除）→ 选中控件写入对应 Part×State 并设 `styleRef`。  
-3. 颜色库仅管理命名色；样式主题不再嵌在颜色库 Tab。
+3. 颜色库管理命名色 + **色板主题**（`colorThemes`）；**样式**主题（Part×State）仅在样式库，不嵌在颜色库。
 
 ### 6.3 CodeGen 映射
 
@@ -516,7 +545,7 @@ Core/CodeGen 将 `style.parts[part][state]` 归一化后输出 `lv_obj_set_style
 
 1. **IPC** `project:assetDataUrl(relPath)`：校验路径在工程根下 → 读二进制 → 返回 `data:<mime>;base64,...`；preload `resolveAssetDataUrl`。  
 2. **Renderer** `projectAssetCache`：按 relPath 缓存 data URL；`buildWidgetCanvasChrome` 只接受**已解析**的 `resolvedBgImage` / 字体族名。  
-3. **字体：** 导入字体后注入 `@font-face`；未导入时画布默认 **Montserrat**（对齐模拟 `lv_font_montserrat_*` / `LV_FONT_DEFAULT`）。`text_font_size` 未设默认 **14**；行高用 LVGL montserrat `line_height`（≈size+2，再加 `text_line_space`），**禁止**用 `size×1.3` 冒充。CodeGen：`text_font`+`text_font_size` → `forgeui_font_<id>_<size>` 或 `&lv_font_montserrat_<size>`。  
+3. **字体：** 新建/打开工程注入内置 TTF（`SourceHanSansCN-Bold` 等）并 `@font-face`；控件样式种子默认 **`text_font=@SourceHanSansCN-Bold`**、**`text_font_size=16`**。行高用 LVGL montserrat `line_height`（≈size+2，再加 `text_line_space`），**禁止**用 `size×1.3` 冒充。CodeGen：`text_font`+`text_font_size` → `forgeui_font_<id>_<size>` 或 `&lv_font_montserrat_<size>`。  
 4. **按钮文案：** `.btn-label { width:100% }`；CodeGen 子 label `LV_PCT(100)` + `long_mode`。  
 5. **image 控件：** `props.src` 同一管线，画布 `<img :src="dataUrl">`。  
 6. **测试：** `designer_canvas_asset_url`；`codegen_long_mode_bk`；`codegen_style_text_font`；画布行高/默认族契约（label/button BK 测试）。
@@ -612,6 +641,8 @@ async function setEvents(events: EventBinding[]) { /* setEvents IPC */ }
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| V1.6l | 2026-08-07 | `03-button`：`isContainer=false`；与树/面板/MCP 可父规则对齐 |
+| V1.6k | 2026-08-06 | §5.4：`WidgetSpec.defaultStyle` 对齐 theme_default Light；分册 JSON 同步；画布缺省回退种子 |
 | V1.6j | 2026-08-06 | 旋转锚点补箭头图示（圆柄 + SVG，对标 Beken） |
 | V1.6i | 2026-08-06 | Selection chrome 外壳/内容分离 + 选中 z-index；修复手柄裁切 |
 | V1.6h | 2026-08-05 | 缩放手柄纯色方块；画布旋转锚点（绕中心 / CodeGen pivot 一致） |

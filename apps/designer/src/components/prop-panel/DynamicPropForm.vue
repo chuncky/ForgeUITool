@@ -38,8 +38,10 @@
       <input
         v-else-if="spec.type === 'number'"
         type="number"
-        :value="Number(nodeProps[spec.name] ?? spec.default ?? 0)"
+        step="1"
+        :value="numberPropDisplay(spec)"
         @change="emitChange(spec, $event)"
+        @input="onOpaInput(spec, $event)"
       />
 
       <template v-else-if="spec.type === 'boolean'">
@@ -122,6 +124,10 @@ import { colorSwatch, toRgbaHex } from "../../utils/color";
 import { useUiStore } from "../../stores/ui";
 import { useProjectStore } from "../../stores/project";
 import { computed } from "vue";
+import { DEFAULT_STYLE_OPACITY, wrapOpacity255 } from "@forgeui/core/opacity";
+
+/** Props that use LVGL 0–255 opacity/brightness scale (BK). */
+const OPA_PROP_NAMES = new Set(["bright"]);
 
 const props = defineProps<{
   specs: PropSpecMeta[];
@@ -146,6 +152,26 @@ const previewHint = computed(() => {
   const loc = projectStore.i18nConfig.previewLocale ?? projectStore.i18nConfig.defaultLocale;
   return entry.values[loc] ?? "";
 });
+
+function isOpaProp(name: string) {
+  return OPA_PROP_NAMES.has(name);
+}
+
+function numberPropDisplay(spec: PropSpecMeta): number {
+  const raw = props.nodeProps[spec.name] ?? spec.default;
+  if (raw == null || raw === "") {
+    return isOpaProp(spec.name) ? DEFAULT_STYLE_OPACITY : 0;
+  }
+  return Number(raw);
+}
+
+function onOpaInput(spec: PropSpecMeta, e: Event) {
+  if (!isOpaProp(spec.name)) return;
+  const el = e.target as HTMLInputElement;
+  const value = wrapOpacity255(el.value);
+  if (el.value !== String(value)) el.value = String(value);
+  emit("change", spec.name, value);
+}
 
 function isPrimaryText(name: string) {
   return name === "text" || name === "label" || name === "title";
@@ -182,7 +208,12 @@ function rangeMax(name: string) {
 function emitChange(spec: PropSpecMeta, e: Event) {
   const el = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
   let value: unknown = el.value;
-  if (spec.type === "number") value = Number(el.value);
+  if (spec.type === "number") {
+    value = isOpaProp(spec.name) ? wrapOpacity255(el.value) : Number(el.value);
+    if (isOpaProp(spec.name) && el instanceof HTMLInputElement && el.value !== String(value)) {
+      el.value = String(value);
+    }
+  }
   if (spec.type === "boolean") value = (el as HTMLInputElement).checked;
   if (spec.type === "color") value = toRgbaHex(el.value);
   emit("change", spec.name, value);

@@ -13,7 +13,13 @@
     @mousedown.stop="onDragStart"
     @contextmenu.prevent.stop="onContextMenu"
   >
-    <div class="widget-body" :class="node.type" :style="bodyStyle">
+    <div class="widget-body" :class="node.type" :style="paintBodyStyle">
+      <div
+        v-if="resolvedBg"
+        class="widget-bg-img"
+        aria-hidden="true"
+        :style="bgImgLayerStyle"
+      />
       <template v-if="node.type === 'tabview' && tabviewChrome">
         <div class="tab-bar" :style="tabviewChrome.barStyle">
           <button
@@ -125,15 +131,25 @@ import { useProjectStore } from "../stores/project";
 import { useUiStore } from "../stores/ui";
 import { useCanvasViewStore } from "../stores/canvasView";
 import { nodeDisplayText } from "../utils/i18n-display";
-import { buildWidgetCanvasChrome, splitCanvasChrome } from "../utils/canvas-chrome";
-import { buttonCaptionOverflowCss, textLongModeOverflowCss, textLongModeScrollKind } from "../utils/button-prop-display-contract";
-import { buildTabviewChrome, isTabviewChildVisible } from "../utils/tabview-chrome";
-import { resolveCanvasStyleProps } from "../utils/style";
+import {
+  bodyStyleWithoutBgImage,
+  buildBgImageLayerStyle,
+  buildWidgetCanvasChrome,
+  splitCanvasChrome,
+} from "../utils/canvas-chrome";
 import {
   ensureCanvasFontFace,
   fontPathForId,
   resolveProjectAssetDataUrl,
 } from "../utils/asset-url";
+import { opacityToCss01 } from "@forgeui/core/opacity";
+import { resolveCanvasStyleProps } from "../utils/style";
+import {
+  buttonCaptionOverflowCss,
+  textLongModeOverflowCss,
+  textLongModeScrollKind,
+} from "../utils/button-prop-display-contract";
+import { buildTabviewChrome, isTabviewChildVisible } from "../utils/tabview-chrome";
 import {
   RESIZE_HANDLE_DIRS,
   applyResizeDelta,
@@ -141,11 +157,31 @@ import {
   type ResizeHandleDir,
 } from "../utils/resize-handles";
 import { angleDegFromCenter, applyRotationDrag, normalizeRotationDeg } from "../utils/rotate-handle";
+import { clampFrameToParent } from "../utils/frame-clamp";
+import { findParentNode } from "../stores/project";
 
 const props = defineProps<{ node: UiNode; editingDisabled?: boolean }>();
 const store = useProjectStore();
 const ui = useUiStore();
 const canvasView = useCanvasViewStore();
+
+function parentContentSize(): { w: number; h: number } {
+  const screen = store.currentScreen;
+  if (!screen) {
+    return {
+      w: store.loaded?.project.display.width ?? 480,
+      h: store.loaded?.project.display.height ?? 320,
+    };
+  }
+  const parent = findParentNode(screen, props.node.id);
+  if (!parent || parent.id === screen.id) {
+    return {
+      w: screen.frame?.w ?? store.loaded?.project.display.width ?? 480,
+      h: screen.frame?.h ?? store.loaded?.project.display.height ?? 320,
+    };
+  }
+  return { w: parent.frame.w, h: parent.frame.h };
+}
 
 const resizeHandleDirs = RESIZE_HANDLE_DIRS;
 
@@ -239,7 +275,9 @@ watch(
   }),
   async ({ bg, font, src, type, fonts }) => {
     if (bg) {
-      resolvedBg.value = await resolveProjectAssetDataUrl(bg);
+      const url = await resolveProjectAssetDataUrl(bg);
+      if (!url) console.warn("[forgeui] bg_image failed to resolve:", bg);
+      resolvedBg.value = url;
     } else {
       resolvedBg.value = null;
     }
@@ -285,6 +323,25 @@ const chromeParts = computed(() => {
 const shellStyle = computed(() => chromeParts.value.shell);
 const bodyStyle = computed(() => chromeParts.value.body);
 
+const paintBodyStyle = computed(() => {
+  const body = bodyStyleWithoutBgImage(bodyStyle.value);
+  if (resolvedBg.value && body.background && !String(body.background).includes("gradient")) {
+    body.backgroundColor = body.backgroundColor ?? body.background;
+    delete body.background;
+  }
+  return body;
+});
+
+const bgImgLayerStyle = computed(() => {
+  if (!resolvedBg.value) return {};
+  const opaRaw = bodyStyle.value["--forge-bg-img-opa"];
+  const opa =
+    typeof opaRaw === "number"
+      ? opaRaw
+      : opacityToCss01(styleProps.value.bg_img_opacity) ?? 1;
+  return buildBgImageLayerStyle(resolvedBg.value, opa, bodyStyle.value.borderRadius);
+});
+
 const editingDisabled = computed(() => props.editingDisabled ?? false);
 
 function onSelect(e: MouseEvent) {
@@ -311,11 +368,14 @@ function onDragStart(e: MouseEvent) {
 
   const onMove = (ev: MouseEvent) => {
     const z = canvasView.zoom || 1;
-    live.value = {
+    const box = parentContentSize();
+    const next = {
       ...live.value!,
-      x: Math.max(0, Math.round(ox + (ev.clientX - startX) / z)),
-      y: Math.max(0, Math.round(oy + (ev.clientY - startY) / z)),
+      x: Math.round(ox + (ev.clientX - startX) / z),
+      y: Math.round(oy + (ev.clientY - startY) / z),
     };
+    const clamped = clampFrameToParent(next, box.w, box.h);
+    live.value = { ...live.value!, x: clamped.x, y: clamped.y };
   };
   const onUp = async () => {
     window.removeEventListener("mousemove", onMove);
@@ -351,7 +411,10 @@ function onResizeStart(dir: ResizeHandleDir, e: MouseEvent) {
     const z = canvasView.zoom || 1;
     const dx = (ev.clientX - startX) / z;
     const dy = (ev.clientY - startY) / z;
-    live.value = { ...applyResizeDelta(startFrame, dir, dx, dy), rotation: startRotation };
+    const box = parentContentSize();
+    const resized = applyResizeDelta(startFrame, dir, dx, dy);
+    const clamped = clampFrameToParent(resized, box.w, box.h);
+    live.value = { ...clamped, rotation: startRotation };
   };
   const onUp = async () => {
     window.removeEventListener("mousemove", onMove);
@@ -621,6 +684,18 @@ function onRotateStart(e: MouseEvent) {
 .img-placeholder {
   color: var(--muted);
   font-size: 11px;
+}
+
+.widget-bg-img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.widget-body > :not(.widget-bg-img) {
+  position: relative;
+  z-index: 1;
 }
 
 .widget-body.image {

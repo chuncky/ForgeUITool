@@ -2,7 +2,7 @@
 
 > **用途：** `/loop` 持续迭代时每次 tick 先读本文件，完成下一项后更新状态。  
 > **依据：** 立项书 M0～M5、详设 §14 M1～M8、需求 FR/AC、控件属性面板详设 V1-A/B/C、MCP 详设 V2。  
-> **最后更新：** 2026-08-05（V1.6e：long_mode 模拟 + text_font_size CodeGen，对标 BK）
+> **最后更新：** 2026-08-07（FR-013a：控件树拖拽改父 + button 不可作父）
 
 ---
 
@@ -105,6 +105,8 @@
 
 - [x] FR-004 历史版本 `.forge/history/`（存档自动快照 + HistoryDialog 恢复）
 - [x] FR-013b 六向对齐（多选 Ctrl+点击；控件 ⋯ 菜单）
+- [x] FR-013a 控件树拖拽排序/改父（`moveNode` + `project:moveNode`；`ComponentTreeNode` HTML5 DnD）
+- [x] 可父容器收紧：`button.isContainer=false`；面板/MCP/`addChildNode` 同源（仅 screen/container/tabview/tileview/win/menu）
 - [x] FR-019 自定义控件 Tab（`project.customWidgets[]` + 树菜单另存 + 库 Tab 拖入）
 - [x] 工程内 .forgeui 导入（IPC unbundle + Home/WorkspaceGate 入口）
 
@@ -533,6 +535,15 @@ P1 收尾：C JSON runtime main/items **checked/pressed/focused/disabled** State
 
 | 日期 | Loop# | 内容 |
 |------|-------|------|
+| 2026-08-06 | — | V1.32：设置页对齐 BK（四分类/工作台偏好/AI 自动检测无开关）；项目设置 Tab+i18n |
+| 2026-08-06 | — | V1.31：AI设计对齐 BK（顶栏下拉/Cursor 一键 MCP+Skill/Skill 包） |
+| 2026-08-06 | — | V1.30：资源管理三 Tab（图/字/多语言并入）+ 删除/引用计数；顶栏去独立多语言 |
+| 2026-08-06 | — | V1.29：颜色库对齐 BK（颜色\|主题双 Tab + colorThemes 色板）；样式库保持独立 |
+| 2026-08-07 | — | V1.32：画布坐标回归（去掉 screen 子节点 position:relative；screen-clip 裁屏外；拖/缩相对父框钳制） |
+| 2026-08-07 | — | FR-013a：控件树拖拽改父/`moveNode`；`button.isContainer=false`；文档需求 V2.27 / 详设 V1.31 / MCP V1.2 / 映射表 / 03-button / 手册 §5.1 |
+| 2026-08-06 | — | V1.28：全局细滚动条对齐 BK（6px / `#7a8a9e`）；`styles.css` + `designer_scrollbar_chrome` |
+| 2026-08-06 | — | 修复 release：`canvas-chrome` 禁 barrel 改 `@forgeui/core/widgets`；详设 V1.27 §2；`designer_renderer_core_imports` |
+| 2026-08-06 | — | V1.6k：`WidgetSpec.defaultStyle` 种子 + mutate/画布回退；详设 §5.4 + 分册 JSON/手册同步 |
 | 2026-08-06 | — | CodeGen long_mode：改用产品 LVGL `LV_LABEL_LONG_*`（修复预览编译 C2065） |
 | 2026-08-06 | — | V1.6j：旋转锚点补箭头图示（避免仅实心点无语义） |
 | 2026-08-06 | — | V1.6i：对齐 BK selection 分层（外壳不裁切 + z-index）；修复手柄被 overflow 裁切 |

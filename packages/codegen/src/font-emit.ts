@@ -73,6 +73,10 @@ export function isLikelyFontFile(filePath: string): boolean {
   }
 }
 
+function cMacroIdent(s: string): string {
+  return s.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
 export function writeFontHeader(
   baseName: string,
   cName: string,
@@ -80,7 +84,8 @@ export function writeFontHeader(
   stub: boolean,
   charsetLen = 0,
 ): void {
-  const guard = `FORGEUI_${baseName.toUpperCase()}_H`;
+  const macroBase = cMacroIdent(baseName.toUpperCase());
+  const guard = `FORGEUI_${macroBase}_H`;
   const note = stub
     ? `/** Stub: lv_font_conv unavailable or invalid font file. Charset: ${baseName}.charset.txt (${charsetLen} glyphs). */`
     : `/** Bitmap font from lv_font_conv. Charset: ${baseName}.charset.txt (${charsetLen} glyphs). */`;
@@ -93,7 +98,7 @@ export function writeFontHeader(
 ${note}
 extern const lv_font_t *${cName};
 
-#define FORGEUI_FONT_${baseName.toUpperCase()} ${cName}
+#define FORGEUI_FONT_${macroBase} ${cName}
 
 #endif
 `,

@@ -8,6 +8,34 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./widgets": {
+      "types": "./dist/widgets.d.ts",
+      "import": "./dist/widgets.js"
+    },
+    "./builtin-fonts": {
+      "types": "./dist/builtin-fonts.d.ts",
+      "import": "./dist/builtin-fonts.js"
+    },
+    "./builtin-fonts-fs": {
+      "types": "./dist/builtin-fonts-fs.d.ts",
+      "import": "./dist/builtin-fonts-fs.js"
+    },
+    "./opacity": {
+      "types": "./dist/opacity.d.ts",
+      "import": "./dist/opacity.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./frame-anchor": {
+      "types": "./dist/frame-anchor.d.ts",
+      "import": "./dist/frame-anchor.js"
+    },
+    "./themes": {
+      "types": "./dist/themes.d.ts",
+      "import": "./dist/themes.js"
     }
   },
   "scripts": {

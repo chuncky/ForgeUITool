@@ -9,6 +9,8 @@ import { getWidgetSpec } from "../packages/core/src/widgets";
 import {
   BUTTON_CANVAS_PROP_KEYS,
   BUTTON_CANVAS_STYLE_KEYS,
+  bodyStyleWithoutBgImage,
+  buildFillBackground,
   buildWidgetCanvasChrome,
   forgeColorToCss,
   withAlpha,
@@ -154,6 +156,12 @@ describe("FR-016e button canvas chrome — prop visibility", () => {
         },
       },
       {
+        key: "bg_img_opacity",
+        value: 128,
+        extras: { bg_image: "assets/images/btn_bg.png" },
+        assert: (s) => expect(s["--forge-bg-img-opa"]).toBeCloseTo(128 / 255, 5),
+      },
+      {
         key: "radius",
         value: 12,
         assert: (s) => expect(s.borderRadius).toBe("12px"),
@@ -182,8 +190,8 @@ describe("FR-016e button canvas chrome — prop visibility", () => {
       {
         key: "text_line_space",
         value: 6,
-        // Default font 14 → LVGL montserrat line_height 16 + 6 = 22
-        assert: (s) => expect(s.lineHeight).toBe("22px"),
+        // Default font 16 → LVGL montserrat line_height 18 + 6 = 24
+        assert: (s) => expect(s.lineHeight).toBe("24px"),
       },
       {
         key: "text_align",
@@ -304,7 +312,7 @@ describe("FR-016e button canvas chrome — prop visibility", () => {
 
     for (const c of cases) {
       const resolved =
-        c.key === "bg_image"
+        c.key === "bg_image" || c.key === "bg_img_opacity"
           ? { resolvedBgImage: SAMPLE_PNG_DATA_URL }
           : c.key === "text_font"
             ? { resolvedFontFamily: "forgeui-font-montserrat" }
@@ -346,5 +354,60 @@ describe("FR-016e button canvas chrome — prop visibility", () => {
     expect(s.top).toBe("-3px");
     expect(s.transform).toContain("rotate(15deg)");
     expect(s.opacity).toBeCloseTo(40 / 255, 5);
+  });
+
+  it("buildFillBackground emits hor/ver linear-gradient for screen/widget fill", () => {
+    const hor = buildFillBackground(
+      { bg_color: "#ff0000", bg_grad_color: "#0000ff", bg_grad_dir: "hor" },
+      { colorFallback: "var(--screen)" },
+    );
+    expect(hor.isGradient).toBe(true);
+    expect(hor.fill).toMatch(/linear-gradient\(to right/);
+    expect(hor.fill).toMatch(/#ff0000|#f00|rgb\(255,\s*0,\s*0\)/i);
+    expect(hor.fill).toMatch(/#0000ff|#00f|rgb\(0,\s*0,\s*255\)/i);
+
+    const ver = buildFillBackground(
+      { bg_color: "#111111", bg_grad_color: "#eeeeee", bg_grad_dir: "ver" },
+      { colorFallback: "var(--screen)" },
+    );
+    expect(ver.isGradient).toBe(true);
+    expect(ver.fill).toMatch(/linear-gradient\(to bottom/);
+
+    const solid = buildFillBackground({ bg_color: "#abcdef" }, { colorFallback: "var(--screen)" });
+    expect(solid.isGradient).toBe(false);
+    expect(solid.fill).toMatch(/#abcdef/i);
+  });
+
+  it("gradient fill survives alongside bg image; bodyStyleWithoutBgImage strips url keys", () => {
+    const styled = baseButton(
+      {
+        bg_color: "#ff0000",
+        bg_grad_color: "#00ff00",
+        bg_grad_dir: "hor",
+        bg_image: "assets/images/btn_bg.png",
+      },
+      {},
+      undefined,
+      { resolvedBgImage: SAMPLE_PNG_DATA_URL },
+    );
+    expect(String(styled.background)).toMatch(/linear-gradient\(to right/);
+    expect(String(styled.backgroundImage)).toMatch(/^url\("data:image\/png;base64,/);
+    // Must not put solid-only backgroundColor when gradient is active
+    expect(styled.backgroundColor).toBeUndefined();
+
+    const body = bodyStyleWithoutBgImage(styled);
+    expect(body.backgroundImage).toBeUndefined();
+    expect(body.backgroundSize).toBeUndefined();
+    expect(String(body.background)).toMatch(/linear-gradient/);
+  });
+
+  it("Canvas screen fill and HistoryScreenNode use shared fill / strip bg-image layer", () => {
+    const canvasSrc = readFileSync(join(root, "apps/designer/src/components/Canvas.vue"), "utf8");
+    expect(canvasSrc).toMatch(/buildFillBackground/);
+    expect(canvasSrc).toMatch(/bg_grad_dir/);
+
+    const histSrc = readFileSync(join(root, "apps/designer/src/components/HistoryScreenNode.vue"), "utf8");
+    expect(histSrc).toMatch(/bodyStyleWithoutBgImage/);
+    expect(histSrc).toMatch(/splitCanvasChrome|buildWidgetCanvasChrome/);
   });
 });

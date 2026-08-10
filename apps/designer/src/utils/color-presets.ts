@@ -1,0 +1,51 @@
+/** Built-in swatches for ColorLibraryDialog (BK 预设 / LVGL 常用). */
+
+/** Beken-like preset grid (approx. from 颜色库3.png). */
+export const PRESET_COLORS: readonly string[] = [
+  "#e53935ff",
+  "#d81b60ff",
+  "#8e24aaff",
+  "#5e35b1ff",
+  "#3949abff",
+  "#1e88e5ff",
+  "#039be5ff",
+  "#00acc1ff",
+  "#00897bff",
+  "#43a047ff",
+  "#7cb342ff",
+  "#c0ca33ff",
+  "#fdd835ff",
+  "#ffb300ff",
+  "#fb8c00ff",
+  "#f4511eff",
+  "#6d4c41ff",
+  "#757575ff",
+  "#546e7aff",
+  "#212121ff",
+  "#ffffffff",
+];
+
+/** Common LVGL / Material-ish palette entries. */
+export const LVGL_COMMON_COLORS: readonly string[] = [
+  "#f44336ff",
+  "#e91e63ff",
+  "#9c27b0ff",
+  "#673ab7ff",
+  "#3f51b5ff",
+  "#2196f3ff",
+  "#03a9f4ff",
+  "#00bcd4ff",
+  "#009688ff",
+  "#4caf50ff",
+  "#8bc34aff",
+  "#cddc39ff",
+  "#ffeb3bff",
+  "#ffc107ff",
+  "#ff9800ff",
+  "#ff5722ff",
+  "#795548ff",
+  "#9e9e9eff",
+  "#607d8bff",
+  "#000000ff",
+  "#ffffffff",
+];

@@ -71,6 +71,13 @@ export const BUTTON_STYLE_DISPLAY_ITEMS: ButtonPropDisplayItem[] = [
     group: "style",
     usableEffect: "backgroundImage 必须为 data:image/…;base64（真可加载）",
   },
+  {
+    id: "style.bg_img_opacity",
+    bk: "bg_img_opa",
+    forge: "style.bg_img_opacity",
+    group: "style",
+    usableEffect: "有 bg_image 时独立图层 opacity；chrome --forge-bg-img-opa",
+  },
   { id: "style.radius", bk: "radius", forge: "style.radius", group: "style", usableEffect: "borderRadius px" },
   { id: "style.clip_corner", bk: "—", forge: "style.clip_corner", group: "style", usableEffect: "overflow:hidden" },
   { id: "style.text_color", bk: "text_color", forge: "style.text_color", group: "style", usableEffect: "color 变化" },

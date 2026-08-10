@@ -4,8 +4,9 @@
 > **产品暂名：** ForgeUI Kit（可替换）  
 > **专项：** UI 的 PC 拖拽式开发工具 — 拖拽即可生成可编译 UI 程序  
 > **依据：** `docs/嵌入式UI工具_竞品对比分析报告.md`；七家工具公开能力与本仓库 `ref/` 分析/重构结论；专项目标  
-> **版本：** V2.26  
-> **日期：** 2026-08-04  
+> **版本：** V2.27  
+> **日期：** 2026-08-07  
+> **V2.27：** **FR-013a** 控件树拖拽排序/改父（`moveNode`）；可作父仅 `isContainer`（**不含 button**）；面板/MCP 添加父解析同源。  
 > **V2.26：** **FR-016e 收口（实际可用）**：画布须**真正显示**背景图像素与文本字号/字体/对齐（禁止仅写 CSS 字符串冒充）；新增工程资源可加载 URL（`project:assetDataUrl`）；契约测试须覆盖真实文件解析。  
 > **V2.25：** 新增 **FR-016e**：属性面板修改须在画布 chrome 即时可见（按钮为契约样例）；`buildWidgetCanvasChrome` + `tests/designer_button_canvas_chrome.test.ts`。  
 > **V2.24：** **FR-011d** 多页存档：切页/存档前冲刷属性面板未提交输入，避免切换后丢修改。  
@@ -396,7 +397,7 @@
 | FR-012 | 拖拽添加；移动缩放；多选对齐 | P0 | 写回 JSON |
 | FR-012a | **键盘删除选中控件（P0）**：工作区选中非 screen 节点时，按 **Delete** 或 **Backspace** 调用与属性面板「删除控件」相同的 `removeNode` 路径；入撤销栈（FR-010c）。焦点在 `input` / `textarea` / `select` / `contenteditable` 时**不**拦截。不可删 screen 根 | P0 | 选中按钮按 Delete 后画布与树消失；Ctrl+Z 可恢复；在属性文本框按 Delete 仅删字符 |
 | FR-013 | 组件树与画布选中同步；锁定/隐藏写回 JSON | P0 | 选中一致 |
-| FR-013a | **控件树面板**（对标 Beken「组件树 [N]」；本产品文案 **「控件树 [N]」**）：仅当前页；递归层级；行内 **眼睛** 切换 `hidden`；锁定态图标；类型图标 + 名称；**⋯ 菜单须 `FloatingPanelMenu` 悬浮层**，不得被面板 `overflow` 裁剪 | P0 | 隐藏后画布不绘制；菜单浮于面板外（见问题图 `页面面板的弹出菜单.png`） |
+| FR-013a | **控件树面板**（对标 Beken「组件树 [N]」；本产品文案 **「控件树 [N]」**）：仅当前页；递归层级；行内 **眼睛** 切换 `hidden`；锁定态图标；类型图标 + 名称；**⋯ 菜单须 `FloatingPanelMenu` 悬浮层**，不得被面板 `overflow` 裁剪；**树内拖拽**同级排序 / 拖到容器上改父（`moveNode`；仅 `isContainer` 可作父；**button 不可作父**） | P0 | 隐藏后画布不绘制；菜单浮于面板外；拖到 container 下子节点出现在树缩进层 |
 | FR-013b | **组件 ⋯ 操作菜单**（对标 `组件修改菜单.png`）：锁定、隐藏、复制、上移/下移、置顶/置底、删除；**对齐** 6 向；**创建自定义控件**（FR-019） | P0 | 菜单项可用且入撤销栈 |
 | FR-013c | **画布控件右键菜单（P0，对标 Beken 画布）**：画布上对控件 **右键** 弹出与 FR-013b **同源**操作菜单（`FloatingPanelMenu` 按鼠标点位定位）；右键时先选中该控件；至少锁定/隐藏/复制/层级/对齐/删除；不可对 screen 根弹出。依据：`docs/beken界面/画布区域.txt` §1.3 | P0 | 右键弹出菜单；「删除」同 Delete；与树 ⋯ 行为一致 |
 | FR-014 | MVP 控件：Screen、Container、Label、Button、Image、Slider、Switch、Checkbox、Bar、Arc、Dropdown、Textarea（可微调） | P0 | 均可生成且 SDL 可见 |

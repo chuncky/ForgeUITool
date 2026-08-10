@@ -41,7 +41,6 @@
     <ColorLibraryDialog />
     <SaveStyleDialog />
     <StyleLibraryDialog />
-    <I18nDialog />
 
     <AnimationTimelineDialog />
 
@@ -84,8 +83,6 @@ import AssetsDialog from "./AssetsDialog.vue";
 import ColorLibraryDialog from "./ColorLibraryDialog.vue";
 import SaveStyleDialog from "./SaveStyleDialog.vue";
 import StyleLibraryDialog from "./StyleLibraryDialog.vue";
-
-import I18nDialog from "./I18nDialog.vue";
 
 import AnimationTimelineDialog from "./AnimationTimelineDialog.vue";
 

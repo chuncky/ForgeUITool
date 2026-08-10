@@ -124,8 +124,10 @@ describe("MCP tools (read path)", () => {
   });
 
   it("batch_update adds button to hello home", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "forgeui-mcp-add-"));
+    fs.cpSync(templateRoot, tmp, { recursive: true });
     const r = (await callMcpTool("forgeui_batch_update", {
-      projectRoot: templateRoot,
+      projectRoot: tmp,
       operations: [
         {
           type: "add_node",
@@ -138,7 +140,7 @@ describe("MCP tools (read path)", () => {
     })) as { ok: boolean; results: Array<{ ok: boolean }> };
     expect(r.ok).toBe(true);
     expect(r.results[0]?.ok).toBe(true);
-    const reopened = openProject(templateRoot);
+    const reopened = openProject(tmp);
     expect(reopened.screens.get("home")!.children.some((c) => c.name === "mcp_btn")).toBe(true);
   });
 

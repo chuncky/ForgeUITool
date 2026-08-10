@@ -12,7 +12,7 @@
   "previewBackend": "sdl",
   "deliveryMode": "both",
   "entrySymbol": "ui_init",
-  "defaultScreen": "settings",
+  "defaultScreen": "home",
   "screens": [
     {
       "id": "home",
@@ -25,7 +25,20 @@
   ],
   "assets": {
     "images": [],
-    "fonts": []
+    "fonts": [
+      {
+        "id": "SourceHanSansCN-Bold",
+        "path": "assets/fonts/SourceHanSansCN-Bold.ttf",
+        "size": 16,
+        "bpp": 4
+      },
+      {
+        "id": "2312_v9",
+        "path": "assets/fonts/2312_v9.ttf",
+        "size": 16,
+        "bpp": 4
+      }
+    ]
   },
   "export": {
     "imageMode": "c_array",

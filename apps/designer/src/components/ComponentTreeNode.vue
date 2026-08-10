@@ -1,6 +1,22 @@
 <template>
   <li class="node-wrap">
-    <div class="row" :class="{ on: store.isSelected(node.id), hidden: node.hidden, locked: node.locked }">
+    <div
+      class="row"
+      :class="{
+        on: store.isSelected(node.id),
+        hidden: node.hidden,
+        locked: node.locked,
+        'drop-before': dropMode === 'before',
+        'drop-after': dropMode === 'after',
+        'drop-inside': dropMode === 'inside',
+      }"
+      :draggable="!node.locked"
+      @dragstart="onDragStart"
+      @dragend="onDragEnd"
+      @dragover.prevent="onDragOver"
+      @dragleave="onDragLeave"
+      @drop.prevent="onDrop"
+    >
       <button type="button" class="main" @click.stop="onSelect">
         <span class="type">{{ node.type }}</span>
         <span class="name">{{ node.name || node.id }}</span>
@@ -29,8 +45,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
 import type { UiNode } from "../env";
-import { useProjectStore } from "../stores/project";
+import { findNode, findParentNode, useProjectStore } from "../stores/project";
+
+const TREE_MIME = "application/x-forgeui-tree-node";
+
+/** Chromium: getData is empty during dragover — share id across instances. */
+let activeTreeDragId = "";
 
 const props = defineProps<{ node: UiNode }>();
 const emit = defineEmits<{
@@ -38,6 +60,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useProjectStore();
+const dropMode = ref<"before" | "after" | "inside" | null>(null);
 
 function onSelect(e: MouseEvent) {
   store.select(props.node.id, { additive: e.ctrlKey || e.metaKey });
@@ -45,6 +68,89 @@ function onSelect(e: MouseEvent) {
 
 function onMenuClick(e: MouseEvent) {
   emit("menu", props.node, e.currentTarget as HTMLElement);
+}
+
+function onDragStart(e: DragEvent) {
+  if (props.node.locked) {
+    e.preventDefault();
+    return;
+  }
+  activeTreeDragId = props.node.id;
+  e.dataTransfer?.setData(TREE_MIME, props.node.id);
+  e.dataTransfer!.effectAllowed = "move";
+}
+
+function onDragEnd() {
+  dropMode.value = null;
+  activeTreeDragId = "";
+}
+
+function containsId(root: UiNode, id: string): boolean {
+  if (root.id === id) return true;
+  return root.children.some((c) => containsId(c, id));
+}
+
+function canDrop(dragId: string): boolean {
+  if (!dragId || dragId === props.node.id) return false;
+  const screen = store.currentScreen;
+  if (!screen) return false;
+  const dragNode = findNode(screen, dragId);
+  if (!dragNode) return false;
+  if (containsId(dragNode, props.node.id)) return false;
+  return true;
+}
+
+function resolveMode(e: DragEvent, el: HTMLElement): "before" | "after" | "inside" {
+  const rect = el.getBoundingClientRect();
+  const ratio = (e.clientY - rect.top) / Math.max(rect.height, 1);
+  const canInside = store.widgetSpec(props.node.type)?.isContainer === true;
+  if (canInside && ratio > 0.25 && ratio < 0.75) return "inside";
+  return ratio < 0.5 ? "before" : "after";
+}
+
+function onDragOver(e: DragEvent) {
+  const known = e.dataTransfer?.types.includes(TREE_MIME);
+  if (!known) {
+    dropMode.value = null;
+    return;
+  }
+  const id = activeTreeDragId;
+  if (!id || !canDrop(id)) {
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+    dropMode.value = null;
+    return;
+  }
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+  dropMode.value = resolveMode(e, e.currentTarget as HTMLElement);
+}
+
+function onDragLeave(e: DragEvent) {
+  const related = e.relatedTarget as Node | null;
+  if (related && (e.currentTarget as HTMLElement).contains(related)) return;
+  dropMode.value = null;
+}
+
+async function onDrop(e: DragEvent) {
+  const dragId = e.dataTransfer?.getData(TREE_MIME) || activeTreeDragId;
+  const mode = dropMode.value ?? resolveMode(e, e.currentTarget as HTMLElement);
+  dropMode.value = null;
+  activeTreeDragId = "";
+  if (!dragId || !canDrop(dragId)) return;
+
+  if (mode === "inside") {
+    const len = props.node.children?.length ?? 0;
+    await store.moveNodeById(dragId, props.node.id, len);
+    return;
+  }
+
+  const screen = store.currentScreen;
+  if (!screen) return;
+  const parent = findParentNode(screen, props.node.id);
+  if (!parent) return;
+  const idx = parent.children.findIndex((c) => c.id === props.node.id);
+  if (idx < 0) return;
+  const insertAt = mode === "before" ? idx : idx + 1;
+  await store.moveNodeById(dragId, parent.id, insertAt);
 }
 </script>
 
@@ -79,6 +185,19 @@ ul {
   text-decoration: line-through;
 }
 
+.row.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.row.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.row.drop-inside {
+  border-color: var(--accent);
+  background: rgba(61, 156, 240, 0.22);
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -89,7 +208,11 @@ ul {
   border: none;
   color: inherit;
   text-align: left;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.row.locked .main {
+  cursor: default;
 }
 
 .type {

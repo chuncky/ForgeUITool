@@ -1,9 +1,15 @@
-/** FR-018 color ref helpers for project.json colors/themes. */
+/** FR-018 color ref helpers for project.json colors / colorThemes / style themes. */
 
 import { patchStyleProps } from "./style.js";
-import type { LoadedProject, NamedColor, NamedStyleTheme, Node } from "./types.js";
+import type {
+  ColorPaletteTheme,
+  LoadedProject,
+  NamedColor,
+  NamedStyleTheme,
+  Node,
+} from "./types.js";
 
-export type { NamedColor, NamedStyleTheme } from "./types.js";
+export type { NamedColor, NamedStyleTheme, ColorPaletteTheme } from "./types.js";
 
 function walkNodes(node: Node, visit: (n: Node) => void): void {
   visit(node);
@@ -64,11 +70,27 @@ export function formatColorRef(id: string): string {
   return `${COLOR_REF_PREFIX}${id}`;
 }
 
-export function resolveColorValue(value: unknown, colors: NamedColor[] | undefined): string {
+/** Flatten mine colors + all palette-theme colors for @id lookup. */
+export function flattenNamedColors(
+  colors: NamedColor[] | undefined,
+  colorThemes?: ColorPaletteTheme[] | undefined,
+): NamedColor[] {
+  const out: NamedColor[] = [...(colors ?? [])];
+  for (const theme of colorThemes ?? []) {
+    for (const c of theme.colors ?? []) out.push(c);
+  }
+  return out;
+}
+
+export function resolveColorValue(
+  value: unknown,
+  colors: NamedColor[] | undefined,
+  colorThemes?: ColorPaletteTheme[] | undefined,
+): string {
   if (typeof value !== "string") return String(value ?? "");
   if (!isColorRef(value)) return value;
   const id = colorRefId(value);
-  const hit = colors?.find((c) => c.id === id);
+  const hit = flattenNamedColors(colors, colorThemes).find((c) => c.id === id);
   return hit?.value ?? value;
 }
 
@@ -86,4 +108,12 @@ export function uniqueId(base: string, existing: Set<string>): string {
   let i = 2;
   while (existing.has(`${base}_${i}`)) i += 1;
   return `${base}_${i}`;
+}
+
+/** Collect all color ids already used in mine + palette themes. */
+export function collectColorIds(
+  colors: NamedColor[] | undefined,
+  colorThemes?: ColorPaletteTheme[] | undefined,
+): Set<string> {
+  return new Set(flattenNamedColors(colors, colorThemes).map((c) => c.id));
 }

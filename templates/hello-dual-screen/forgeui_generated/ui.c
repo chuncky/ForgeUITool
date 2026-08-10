@@ -3,6 +3,7 @@
 #include "screens/screen_home.h"
 #include "screens/screen_settings.h"
 #include "custom/ui_events.h"
+#include "custom/custom_func.h"
 
 void ui_event_change_screen_settings(lv_event_t *e)
 {
@@ -21,9 +22,15 @@ void ui_event_call_on_btn_next(lv_event_t *e)
     on_btn_next();
 }
 
+
+
+
+
+
 void ui_init(void)
 {
     screen_home_create();
     screen_settings_create();
-    lv_screen_load(screen_settings_get());
+    lv_screen_load(screen_home_get());
+    forgeui_custom_init();
 }

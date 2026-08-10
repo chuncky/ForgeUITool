@@ -81,7 +81,16 @@ export const TABVIEW_STYLE_MAIN_DISPLAY_ITEMS: TabviewPropDisplayItem[] = styleS
   g.fields.map(
     (f): TabviewPropDisplayItem => ({
       id: `style.main.${f.key}`,
-      bk: f.key === "bg_image" ? "bg_img_src" : f.key === "bg_opacity" ? "bg_opa" : f.key === "text_opacity" ? "text_opa" : f.key,
+      bk:
+        f.key === "bg_image"
+          ? "bg_img_src"
+          : f.key === "bg_img_opacity"
+            ? "bg_img_opa"
+            : f.key === "bg_opacity"
+              ? "bg_opa"
+              : f.key === "text_opacity"
+                ? "text_opa"
+                : f.key,
       forge: `style.parts.main.default.${f.key}`,
       group: "style",
       usableEffect: `main.${f.key} → rootStyle 可区分`,

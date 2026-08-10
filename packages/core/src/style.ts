@@ -15,6 +15,7 @@ export const STYLE_SUBGROUP_KEYS: Record<string, readonly string[]> = {
     "bg_image",
     "bg_image_src",
     "bg_opacity",
+    "bg_img_opacity",
     "radius",
     "clip_corner",
   ],

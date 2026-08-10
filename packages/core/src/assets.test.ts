@@ -2,7 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createProject, importImageAsset, importImageAssets, normalizeImageAssets, openProject } from "./index.js";
+import {
+  createProject,
+  deleteImageAsset,
+  countImageReferences,
+  importImageAsset,
+  importImageAssets,
+  normalizeImageAssets,
+  openProject,
+  pruneOrphanImages,
+} from "./index.js";
 
 describe("image assets", () => {
   const roots: string[] = [];
@@ -53,5 +62,34 @@ describe("image assets", () => {
 
     const asset = importImageAsset(loaded, src);
     expect(asset.path).toMatch(/^assets\/images\/dup_\d+\.png$/);
+  });
+
+  it("deletes unreferenced image and refuses when referenced", () => {
+    const loaded = tempProject();
+    const src = path.join(loaded.root, "x.png");
+    fs.writeFileSync(src, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const asset = importImageAsset(loaded, src);
+    expect(countImageReferences(loaded, asset.path)).toBe(0);
+
+    const screenId = loaded.project.defaultScreen;
+    const root = loaded.screens.get(screenId)!;
+    root.props.src = asset.path;
+    expect(countImageReferences(loaded, asset.path)).toBeGreaterThan(0);
+    expect(() => deleteImageAsset(loaded, asset.path)).toThrow(/referenced/);
+
+    delete root.props.src;
+    deleteImageAsset(loaded, asset.path);
+    expect(normalizeImageAssets(loaded.project).some((a) => a.path === asset.path)).toBe(false);
+    expect(fs.existsSync(path.join(loaded.root, asset.path))).toBe(false);
+  });
+
+  it("prunes orphan files under assets/images", () => {
+    const loaded = tempProject();
+    const orphan = path.join(loaded.root, "assets/images/orphan.png");
+    fs.mkdirSync(path.dirname(orphan), { recursive: true });
+    fs.writeFileSync(orphan, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const removed = pruneOrphanImages(loaded);
+    expect(removed).toContain("assets/images/orphan.png");
+    expect(fs.existsSync(orphan)).toBe(false);
   });
 });

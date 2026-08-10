@@ -217,6 +217,14 @@ describe("逐项 — 样式 main（实际可用）", () => {
       expect(String(real.rootStyle.backgroundImage)).toMatch(/^url\("data:image/);
       return;
     }
+    if (key === "bg_img_opacity") {
+      const real = tv({
+        style: { main: { default: { bg_image: SAMPLE_PNG, bg_img_opacity: 64 } } },
+        resolvedBgImage: SAMPLE_PNG,
+      });
+      expect(real.rootStyle["--forge-bg-img-opa"]).toBeCloseTo(64 / 255, 5);
+      return;
+    }
     if (key === "radius") {
       expect(tv({ style: style(8) }).rootStyle.borderRadius).toBe("8px");
       return;
@@ -256,7 +264,8 @@ describe("逐项 — 样式 main（实际可用）", () => {
       return;
     }
     if (key === "text_line_space") {
-      expect(tv({ style: style(6) }).rootStyle.lineHeight).toBe("20px");
+      // Default font 16 → LVGL montserrat line_height 18 + 6 = 24
+      expect(tv({ style: style(6) }).rootStyle.lineHeight).toBe("24px");
       return;
     }
     if (key === "text_decor") {

@@ -1,12 +1,12 @@
 /**
- * Align canvas text metrics with LVGL built-in montserrat (LV_FONT_DEFAULT).
- * line_height values sampled from lv_font_montserrat_*.c in LVGL 9.
+ * Align canvas text metrics with LVGL montserrat tables for line-height.
+ * Default family/size follow product builtins (SourceHanSansCN-Bold @ 16).
  */
 export const CANVAS_DEFAULT_FONT_FAMILY =
-  '"Montserrat", "DejaVu Sans", "Arial", sans-serif';
+  '"forgeui-font-SourceHanSansCN-Bold", "Source Han Sans CN", "Microsoft YaHei", "PingFang SC", sans-serif';
 
-/** Beken / LVGL default when style text_font_size is unset. */
-export const CANVAS_DEFAULT_FONT_SIZE = 14;
+/** BK font panel default size (属性字体字号). */
+export const CANVAS_DEFAULT_FONT_SIZE = 16;
 
 const MONTSERRAT_LINE_HEIGHT: Record<number, number> = {
   8: 10,

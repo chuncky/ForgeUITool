@@ -38,6 +38,14 @@ npm run release
 
 产物在 `release/`（portable exe、`win-unpacked/` 等）。可选参数见根目录 `scripts/pack-release.mjs`。
 
+**Renderer 打包约束（必守）：** `apps/designer/src` 禁止 `from "@forgeui/core"`（barrel）。该入口再导出 Node-only `validate`（`createRequire`），会导致 `vite build` 失败并阻断 `npm run release`。请改用：
+
+- `@forgeui/core/widgets` — `getWidgetSpec` 等注册表  
+- `@forgeui/core/types` — `Node` / `Frame` 等类型  
+- `@forgeui/core/frame-anchor` — 锚点几何  
+
+回归：`tests/designer_renderer_core_imports.test.ts`；改完后至少跑 `npm run build -w @forgeui/designer`。
+
 验证已打包产物：
 
 ```bash

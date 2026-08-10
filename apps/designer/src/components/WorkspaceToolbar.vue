@@ -28,13 +28,6 @@
         title="颜色库 FR-018"
         @click="ui.showColorLibrary = true"
       />
-      <ToolbarButton
-        icon="i18n"
-        :label="tt('i18n')"
-        :disabled="!store.loaded"
-        title="多语言键值与 XLIFF FR-042/043"
-        @click="ui.showI18n = true"
-      />
       <label
         v-if="store.loaded && store.i18nConfig.enabled"
         class="locale-switch"
@@ -68,7 +61,7 @@
         title="内存估算 FR-076"
         @click="ui.showMemoryEstimate = true"
       />
-      <ToolbarButton icon="assets" :label="tt('assets')" @click="ui.showAssets = true" />
+      <ToolbarButton icon="assets" :label="tt('assets')" title="资源管理（图片 / 字体 / 多语言）" @click="ui.openAssets()" />
       <label class="locale-switch" :title="tt('uiLocale')">
         {{ tt("uiLocale") }}
         <select :value="ui.uiLocale" @change="onUiLocale">
@@ -99,13 +92,38 @@
       />
       <ToolbarButton
         icon="history"
-        :label="tt('history')"
+        :label="historyLabel"
         :disabled="!store.loaded"
         title="历史版本 FR-004"
         @click="ui.showHistory = true"
       />
       <ToolbarButton icon="code" :label="tt('codeEditor')" @click="ui.showCodeEditor = true" />
-      <ToolbarButton icon="ai" :label="tt('aiDesign')" @click="ui.showAiAssist = true" />
+      <div class="menu-wrap">
+        <ToolbarButton
+          icon="ai"
+          :label="tt('aiDesign')"
+          :disabled="!store.loaded || previewBusy"
+          :title="aiButtonTitle"
+          @click="toggleAiMenu"
+        />
+        <div v-if="ui.aiMenuOpen" class="menu ai-menu" @mouseleave="ui.aiMenuOpen = false">
+          <button
+            v-for="h in aiHosts"
+            :key="h.id"
+            type="button"
+            class="ai-host-row"
+            @click="onAiHost(h)"
+          >
+            <span class="ai-host-name">{{ h.label }}</span>
+            <span v-if="h.installed" class="ai-host-ok">已安装</span>
+            <span v-else class="ai-host-miss"
+              >未安装 · <em @click.stop="openAiSettings">去设置</em></span
+            >
+          </button>
+          <hr class="ai-sep" />
+          <button type="button" @click="openAiSettings">AI 设置…</button>
+        </div>
+      </div>
       <div class="menu-wrap">
         <ToolbarButton icon="c-lang" :label="tt('cLang')" primary @click="toggleCMenu" />
         <div v-if="ui.cMenuOpen" class="menu" @mouseleave="ui.cMenuOpen = false">
@@ -147,20 +165,58 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import ToolbarButton from "./ToolbarButton.vue";
 import { useProjectStore } from "../stores/project";
+import { useSettingsStore } from "../stores/settings";
 import { useUiStore } from "../stores/ui";
 import { t, type UiStringKey } from "../i18n/ui-locale";
+import { mergeAiHostDetection, type AiHostMenuRow } from "../utils/ai-hosts-menu";
 
 const store = useProjectStore();
+const settings = useSettingsStore();
 const ui = useUiStore();
+const router = useRouter();
+const historyCount = ref(0);
+const previewBusy = ref(false);
+/** Always seed four hosts — BK: menu items are permanent; detection only flips 已安装. */
+const aiHosts = ref<AiHostMenuRow[]>(mergeAiHostDetection(null));
 
-onMounted(() => ui.initUiLocale());
+onMounted(() => {
+  ui.initUiLocale();
+  void refreshHistoryCount();
+  void refreshAiHosts();
+});
+
+watch(
+  () => [store.loaded?.root, store.dirty, ui.showHistory] as const,
+  () => {
+    void refreshHistoryCount();
+  },
+);
+
+async function refreshHistoryCount() {
+  if (!store.loaded) {
+    historyCount.value = 0;
+    return;
+  }
+  try {
+    const list = await store.fetchSnapshots();
+    historyCount.value = list.length;
+  } catch {
+    historyCount.value = 0;
+  }
+}
 
 function tt(key: UiStringKey) {
   return t(ui.uiLocale, key);
 }
+
+const historyLabel = computed(() => {
+  const base = tt("history");
+  return historyCount.value > 0 ? `${base}（${historyCount.value}）` : base;
+});
 
 const projectLabel = computed(() => {
   const name = store.loaded?.project.name ?? "未打开工程";
@@ -171,6 +227,25 @@ const packDisabled = computed(
   () => !store.loaded || store.loaded.project.deliveryMode === "static_c",
 );
 
+const aiButtonTitle = computed(() => {
+  if (!store.loaded) return "请先打开工程";
+  if (previewBusy.value) return "预览/编译进行中";
+  return "AI设计 — 选择外部 AI 工具";
+});
+
+async function refreshAiHosts() {
+  try {
+    const d = window.forgeuiDesktop;
+    if (!d?.listAiHosts) return;
+    const res = await d.listAiHosts();
+    // Never clear to [] while detecting — only merge status onto static rows.
+    aiHosts.value = mergeAiHostDetection(res.hosts);
+    previewBusy.value = !!res.previewBusy;
+  } catch {
+    /* keep seeded hosts */
+  }
+}
+
 function openLogPanel() {
   ui.bottomAuxTab = "log";
   ui.logPanelCollapsed = false;
@@ -178,12 +253,46 @@ function openLogPanel() {
 
 function toggleCMenu() {
   ui.deliveryMenuOpen = false;
+  ui.aiMenuOpen = false;
   ui.cMenuOpen = !ui.cMenuOpen;
 }
 
 function toggleDeliveryMenu() {
   ui.cMenuOpen = false;
+  ui.aiMenuOpen = false;
   ui.deliveryMenuOpen = !ui.deliveryMenuOpen;
+}
+
+function toggleAiMenu() {
+  ui.cMenuOpen = false;
+  ui.deliveryMenuOpen = false;
+  ui.aiMenuOpen = !ui.aiMenuOpen;
+  if (ui.aiMenuOpen) void refreshAiHosts();
+}
+
+function openAiSettings() {
+  ui.aiMenuOpen = false;
+  settings.openSettingsTab("ai");
+  void router.push("/settings");
+}
+
+async function onAiHost(h: { id: string; label?: string; installed: boolean; launchSupported: boolean }) {
+  ui.aiMenuOpen = false;
+  if (!h.installed) {
+    openAiSettings();
+    return;
+  }
+  try {
+    const res = await window.forgeuiDesktop!.launchAiHost({ host: h.id });
+    if (!res.ok) {
+      store.statusLine = res.error ?? "启动失败";
+      alert(res.error ?? "启动失败");
+      return;
+    }
+    store.statusLine = res.hint ?? `已启动 ${h.label ?? h.id}`;
+  } catch (e) {
+    alert(e instanceof Error ? e.message : String(e));
+  }
 }
 
 async function runC(cmd: string) {
@@ -289,5 +398,48 @@ function onUiLocale(e: Event) {
 .menu button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.ai-menu {
+  min-width: 240px;
+}
+
+.ai-host-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ai-host-name {
+  font-weight: 600;
+}
+
+.ai-host-ok {
+  color: #3b9b6e;
+  font-size: 12px;
+}
+
+.ai-host-miss {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ai-host-miss em {
+  color: var(--accent);
+  font-style: normal;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ai-sep {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
 }
 </style>

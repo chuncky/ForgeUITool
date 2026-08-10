@@ -144,7 +144,8 @@ void _lv_sdl_mouse_handler(SDL_Event * event)
 
     int32_t hor_res = lv_display_get_horizontal_resolution(disp);
     int32_t ver_res = lv_display_get_vertical_resolution(disp);
-    uint8_t zoom = lv_sdl_window_get_zoom(disp);
+    float zoom = lv_sdl_window_get_zoom(disp);
+    if(zoom <= 0.0f) zoom = 1.0f;
 
     switch(event->type) {
         case SDL_WINDOWEVENT:
@@ -162,13 +163,13 @@ void _lv_sdl_mouse_handler(SDL_Event * event)
         case SDL_MOUSEBUTTONDOWN:
             if(event->button.button == SDL_BUTTON_LEFT) {
                 indev_dev->left_button_down = true;
-                indev_dev->last_x = event->motion.x / zoom;
-                indev_dev->last_y = event->motion.y / zoom;
+                indev_dev->last_x = (int16_t)((float)event->motion.x / zoom);
+                indev_dev->last_y = (int16_t)((float)event->motion.y / zoom);
             }
             break;
         case SDL_MOUSEMOTION:
-            indev_dev->last_x = event->motion.x / zoom;
-            indev_dev->last_y = event->motion.y / zoom;
+            indev_dev->last_x = (int16_t)((float)event->motion.x / zoom);
+            indev_dev->last_y = (int16_t)((float)event->motion.y / zoom);
             break;
 
         case SDL_FINGERUP:

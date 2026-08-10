@@ -16,6 +16,7 @@ describe("AI transaction UI (Loop#13)", () => {
     const preload = fs.readFileSync(path.join(repoRoot, "apps/designer/electron/preload.cjs"), "utf8");
     expect(main).toContain('"ai:commitTransaction"');
     expect(main).toContain("applyBridgeWrite");
+    expect(main).toContain("pending && current && cachedCore");
     expect(preload).toContain("onAiModelUpdated");
   });
 });

@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { EventBinding, LoadedProject, NamedColor, NamedStyleTheme, Node, ScreenDocument } from "./types.js";
+import type { EventBinding, LoadedProject, NamedColor, NamedStyleTheme, ColorPaletteTheme, Node, ScreenDocument } from "./types.js";
 import { ForgeError, ErrorCodes, IDENTIFIER_RE } from "@forgeui/shared";
 import { patchStyleProps } from "./style.js";
 import { syncStyleRefs } from "./themes.js";
 import { getWidgetSpec } from "./widgets.js";
+import { DEFAULT_FONT_STYLE_PROPS } from "./builtin-fonts.js";
+import { DEFAULT_OPACITY_STYLE_PROPS } from "./opacity.js";
 
 function walkFind(node: Node, id: string): Node | null {
   if (node.id === id) return node;
@@ -26,6 +28,54 @@ function walkParent(node: Node, id: string, parent: Node | null = null): { paren
 
 export function findNode(screen: ScreenDocument, nodeId: string): Node | null {
   return walkFind(screen, nodeId);
+}
+
+/**
+ * Keep a child frame fully inside the parent content box (AI/MCP often passes
+ * coordinates outside the screen). Size is also capped so the widget stays visible.
+ */
+export function clampFrameWithinParent(
+  frame: Partial<Node["frame"]> & { x?: number; y?: number; w?: number; h?: number },
+  parentW: number,
+  parentH: number,
+): Node["frame"] {
+  const pw = Math.max(1, Math.round(Number(parentW)) || 1);
+  const ph = Math.max(1, Math.round(Number(parentH)) || 1);
+  let w = Math.max(1, Math.round(Number(frame.w) || 1));
+  let h = Math.max(1, Math.round(Number(frame.h) || 1));
+  w = Math.min(w, pw);
+  h = Math.min(h, ph);
+  let x = Math.round(Number(frame.x) || 0);
+  let y = Math.round(Number(frame.y) || 0);
+  x = Math.min(Math.max(0, x), Math.max(0, pw - w));
+  y = Math.min(Math.max(0, y), Math.max(0, ph - h));
+  return {
+    ...(frame as Node["frame"]),
+    x,
+    y,
+    w,
+    h,
+  };
+}
+
+function pickDefaultChildOrigin(parent: Node, w: number, h: number): { x: number; y: number } {
+  const gap = 8;
+  const margin = 16;
+  let x = margin;
+  let y = margin;
+  for (const c of parent.children) {
+    y = Math.max(y, c.frame.y + c.frame.h + gap);
+  }
+  if (y + h > parent.frame.h && parent.children.length > 0) {
+    const last = parent.children[parent.children.length - 1]!;
+    x = last.frame.x + last.frame.w + gap;
+    y = last.frame.y;
+    if (x + w > parent.frame.w) {
+      x = margin;
+      y = margin;
+    }
+  }
+  return { x, y };
 }
 
 export interface NodeStylePatch {
@@ -53,7 +103,17 @@ export function updateNodeProps(
   const node = findNode(screen, nodeId);
   if (!node) throw new ForgeError(ErrorCodes.E_SEM_001, `node ${nodeId} not found`);
   if (patch.name !== undefined) node.name = patch.name;
-  if (patch.frame) node.frame = { ...node.frame, ...patch.frame };
+  if (patch.frame) {
+    const next = { ...node.frame, ...patch.frame };
+    // Screen root defines the canvas — do not clamp its own size against itself.
+    if (nodeId === screenId) {
+      node.frame = next;
+    } else {
+      const hit = walkParent(screen, nodeId);
+      const parent = hit?.parent ?? screen;
+      node.frame = clampFrameWithinParent(next, parent.frame.w, parent.frame.h);
+    }
+  }
   if (patch.props) node.props = { ...node.props, ...patch.props };
   if (patch.extraData) node.extraData = { ...(node.extraData ?? {}), ...patch.extraData };
   if (patch.styleRef !== undefined) {
@@ -97,10 +157,7 @@ export function addChildNode(
   if (!parent) throw new ForgeError(ErrorCodes.E_SEM_001, `parent ${parentId} not found`);
   const spec = getWidgetSpec(type);
   if (!spec) throw new ForgeError(ErrorCodes.E_SEM_001, `unknown type ${type}`);
-  if (!spec.isContainer && parentId !== screenId && parent.type !== "screen" && parent.type !== "container" && parent.type !== "button") {
-    // allow adding into screen/container/button
-  }
-  if (!getWidgetSpec(parent.type)?.isContainer && parent.type !== "screen") {
+  if (!getWidgetSpec(parent.type)?.isContainer) {
     throw new ForgeError(ErrorCodes.E_SEM_001, `parent ${parent.type} is not a container`);
   }
 
@@ -111,19 +168,21 @@ export function addChildNode(
     id = `${type}_${n}`;
   }
 
+  const origin = pickDefaultChildOrigin(parent, spec.defaultFrame.w, spec.defaultFrame.h);
   const defaultFrame = {
-    x: 20,
-    y: 20 + parent.children.length * 8,
+    x: origin.x,
+    y: origin.y,
     w: spec.defaultFrame.w,
     h: spec.defaultFrame.h,
   };
+  const merged = { ...defaultFrame, ...opts?.frame };
   const node: Node = {
     type,
     id,
     name: spec.label["zh-CN"] || type,
-    frame: { ...defaultFrame, ...opts?.frame },
+    frame: clampFrameWithinParent(merged, parent.frame.w, parent.frame.h),
     props: Object.fromEntries(spec.props.map((p) => [p.name, p.default])),
-    style: {},
+    style: spec.defaultStyle ? structuredClone(spec.defaultStyle) : {},
     ...(spec.defaultExtraData ? { extraData: structuredClone(spec.defaultExtraData) } : {}),
     events: [],
     children: [],
@@ -149,7 +208,15 @@ function blankScreen(id: string, name: string, w: number, h: number): ScreenDocu
     name,
     frame: { x: 0, y: 0, w, h },
     props: {},
-    style: { main: { default: { bg_color: "#101820" } } },
+    style: {
+      main: {
+        default: {
+          bg_color: "#101820ff",
+          ...DEFAULT_FONT_STYLE_PROPS,
+          ...DEFAULT_OPACITY_STYLE_PROPS,
+        },
+      },
+    },
     events: [],
     children: [],
   };
@@ -332,11 +399,15 @@ export function duplicateNode(loaded: LoadedProject, screenId: string, nodeId: s
 
   const clone = deepCloneNode(hit.node);
   reassignNodeIds(clone, screen);
-  clone.frame = {
-    ...clone.frame,
-    x: clone.frame.x + 12,
-    y: clone.frame.y + 12,
-  };
+  clone.frame = clampFrameWithinParent(
+    {
+      ...clone.frame,
+      x: clone.frame.x + 12,
+      y: clone.frame.y + 12,
+    },
+    hit.parent.frame.w,
+    hit.parent.frame.h,
+  );
   const idx = hit.parent.children.findIndex((c) => c.id === nodeId);
   hit.parent.children.splice(idx + 1, 0, clone);
   return clone;
@@ -374,6 +445,52 @@ export function moveNodeOrder(
       break;
   }
   siblings.splice(newIdx, 0, item);
+}
+
+function isDescendantOf(ancestor: Node, maybeDescendantId: string): boolean {
+  return walkFind(ancestor, maybeDescendantId) !== null && ancestor.id !== maybeDescendantId;
+}
+
+/** Reparent or reorder: move `nodeId` under `newParentId` (null = screen root) at `index`. */
+export function moveNode(
+  loaded: LoadedProject,
+  screenId: string,
+  nodeId: string,
+  newParentId: string | null,
+  index: number,
+): void {
+  const screen = loaded.screens.get(screenId);
+  if (!screen) throw new ForgeError(ErrorCodes.E_SEM_001, `screen ${screenId} not found`);
+  if (nodeId === screenId) throw new ForgeError(ErrorCodes.E_SEM_001, "cannot move screen root");
+
+  const hit = walkParent(screen, nodeId);
+  if (!hit?.parent) throw new ForgeError(ErrorCodes.E_SEM_001, `node ${nodeId} not found`);
+
+  const parentId = newParentId ?? screenId;
+  if (parentId === nodeId) {
+    throw new ForgeError(ErrorCodes.E_SEM_001, "cannot reparent node under itself");
+  }
+  const newParent = findNode(screen, parentId);
+  if (!newParent) throw new ForgeError(ErrorCodes.E_SEM_001, `parent ${parentId} not found`);
+  if (!getWidgetSpec(newParent.type)?.isContainer) {
+    throw new ForgeError(ErrorCodes.E_SEM_001, `parent ${newParent.type} is not a container`);
+  }
+  if (isDescendantOf(hit.node, parentId)) {
+    throw new ForgeError(ErrorCodes.E_SEM_001, "cannot reparent node under its descendant");
+  }
+
+  const oldParent = hit.parent;
+  const oldIdx = oldParent.children.findIndex((c) => c.id === nodeId);
+  if (oldIdx < 0) throw new ForgeError(ErrorCodes.E_SEM_001, `node ${nodeId} not found`);
+  const [item] = oldParent.children.splice(oldIdx, 1);
+
+  let insertAt = Number.isFinite(index) ? Math.trunc(index) : newParent.children.length;
+  if (insertAt < 0) insertAt = 0;
+  if (oldParent === newParent && oldIdx < insertAt) insertAt -= 1;
+  if (insertAt > newParent.children.length) insertAt = newParent.children.length;
+
+  item.frame = clampFrameWithinParent(item.frame, newParent.frame.w, newParent.frame.h);
+  newParent.children.splice(insertAt, 0, item);
 }
 
 export function setNodeFlags(
@@ -416,6 +533,7 @@ export function alignNodeToNeighbors(
   }
   node.frame.x = Math.max(0, Math.round(x));
   node.frame.y = Math.max(0, Math.round(y));
+  node.frame = clampFrameWithinParent(node.frame, hit.parent.frame.w, hit.parent.frame.h);
 }
 
 /** Patch project.json meta fields (FR-002). Does not rewrite screens. */
@@ -432,6 +550,7 @@ export function updateProjectMeta(
     defaultScreen?: string;
     sdk?: Partial<NonNullable<LoadedProject["project"]["sdk"]>>;
     colors?: NamedColor[];
+    colorThemes?: ColorPaletteTheme[];
     themes?: NamedStyleTheme[];
     i18n?: import("./i18n.js").I18nConfig;
     animations?: import("./animations.js").TimelineAnimation[];
@@ -465,6 +584,7 @@ export function updateProjectMeta(
   }
   if (patch.sdk) p.sdk = { ...(p.sdk ?? {}), ...patch.sdk };
   if (patch.colors !== undefined) p.colors = patch.colors;
+  if (patch.colorThemes !== undefined) p.colorThemes = patch.colorThemes;
   if (patch.themes !== undefined) {
     p.themes = patch.themes;
     syncStyleRefs(loaded);

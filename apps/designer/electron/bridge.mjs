@@ -14,6 +14,16 @@ const OPERATION_TO_TOOL = {
   generate: "forgeui_generate",
 };
 
+/** Compare aiWorkspacePath ignoring slash/case differences on Windows. */
+export function sameAiWorkspacePath(a, b) {
+  if (!a || !b) return false;
+  const norm = (p) => {
+    const resolved = path.resolve(String(p)).replace(/[/\\]+/g, path.sep);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  return norm(a) === norm(b);
+}
+
 /**
  * ForgeUI Designer HTTP Bridge (127.0.0.1:39201).
  * @param {object} opts
@@ -73,7 +83,7 @@ export function createForgeUiBridge(opts) {
       };
     }
 
-    if (body.aiWorkspacePath && ctx.aiWorkspacePath && body.aiWorkspacePath !== ctx.aiWorkspacePath) {
+    if (body.aiWorkspacePath && ctx.aiWorkspacePath && !sameAiWorkspacePath(body.aiWorkspacePath, ctx.aiWorkspacePath)) {
       return {
         ok: false,
         error: {

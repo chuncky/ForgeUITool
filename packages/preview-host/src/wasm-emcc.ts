@@ -6,6 +6,7 @@ import { openProject, resolveCodegenPaths } from "@forgeui/core";
 import { Diagnostic, ErrorCodes } from "@forgeui/shared";
 import { runProcessAsync } from "./process.js";
 import type { PreviewPrepareResult } from "./types.js";
+import { resolveWinToolsRoot } from "./win-tools.js";
 
 function repoRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -18,11 +19,12 @@ function cmakePathArg(p: string): string {
 function resolveCmake(): string | null {
   const env = process.env.FORGEUI_CMAKE ?? process.env.CMAKE;
   if (env && fs.existsSync(env)) return env;
+  const toolsWin = resolveWinToolsRoot(repoRoot());
   const candidates = [
     "cmake",
     "C:\\Program Files\\CMake\\bin\\cmake.exe",
     "C:\\Program Files (x86)\\CMake\\bin\\cmake.exe",
-    path.join(repoRoot(), "ref/beken/lvgl_ui_designer_2.0.3/resources/tools/win/cmake/bin/cmake.exe"),
+    ...(toolsWin ? [path.join(toolsWin, "cmake/bin/cmake.exe")] : []),
   ];
   for (const c of candidates) {
     if (c === "cmake") return c;
